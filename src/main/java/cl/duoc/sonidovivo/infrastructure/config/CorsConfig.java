@@ -1,6 +1,7 @@
 package cl.duoc.sonidovivo.infrastructure.config;
 
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
@@ -14,16 +15,19 @@ import org.springframework.web.filter.CorsFilter;
 @Configuration
 public class CorsConfig {
 
-    private static final List<String> ALLOWED_ORIGINS = List.of(
-            "http://localhost:5173",
-            "http://localhost:3000"
-    );
+    private final List<String> allowedOrigins;
+
+    public CorsConfig(
+            @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000}") List<String> allowedOrigins
+    ) {
+        this.allowedOrigins = allowedOrigins;
+    }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.setAllowedOrigins(ALLOWED_ORIGINS);
+        config.setAllowedOrigins(allowedOrigins);
         config.setAllowedHeaders(List.of("Origin", "Content-Type", "Accept", "Authorization"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
