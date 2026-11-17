@@ -2,36 +2,45 @@ package cl.duoc.sonidovivo.infrastructure.adapter.out.persistence.oracle;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 
 /**
- * JPA entity mapping Oracle table {@code CLIENTES} for customer persistence.
+ * JPA entity mapping Oracle table {@code CLIENTE} (script {@code scripts/oracle/01_pkg_sonido_vivo.sql}).
+ *
+ * <p>The table also has a {@code TIPO_CLIENTE} column (ESTANDAR, FRECUENTE, PREMIUM) used by the PL/SQL
+ * discount rules. It is intentionally not mapped: the domain {@code Customer} has no tier, so Hibernate
+ * leaves it out of INSERT/UPDATE and Oracle keeps its default or current value.</p>
  */
 @Entity
-@Table(name = "CLIENTES")
+@Table(name = "CLIENTE")
 public class OracleCustomerEntity {
 
     @Id
-    @Column(name = "ID", length = 100, nullable = false)
-    private String id;
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seq_cliente_gen")
+    @SequenceGenerator(name = "seq_cliente_gen", sequenceName = "SEQ_CLIENTE", allocationSize = 1)
+    @Column(name = "ID_CLIENTE", nullable = false)
+    private Long id;
 
-    @Column(name = "RUT", length = 20, nullable = false, unique = true)
+    @Column(name = "RUT", length = 12, nullable = false, unique = true)
     private String rut;
 
-    @Column(name = "FIRST_NAME", length = 100, nullable = false)
+    @Column(name = "NOMBRES", length = 100, nullable = false)
     private String firstName;
 
-    @Column(name = "LAST_NAME", length = 100, nullable = false)
+    @Column(name = "APELLIDOS", length = 100, nullable = false)
     private String lastName;
 
-    @Column(name = "EMAIL", length = 254, nullable = false)
+    @Column(name = "EMAIL", length = 254, nullable = false, unique = true)
     private String email;
 
-    @Column(name = "PHONE", length = 25, nullable = false)
+    @Column(name = "TELEFONO", length = 25, nullable = false)
     private String phone;
 
-    @Column(name = "COMMUNE", length = 100, nullable = false)
+    @Column(name = "COMUNA", length = 100, nullable = false)
     private String commune;
 
     @Column(name = "REGION", length = 100, nullable = false)
@@ -40,11 +49,11 @@ public class OracleCustomerEntity {
     public OracleCustomerEntity() {
     }
 
-    public String getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(String id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
