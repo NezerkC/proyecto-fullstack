@@ -1,4 +1,4 @@
-name: Java CI with Maven
+name: Java CI with Maven & GHCR Publish
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   build-and-test:
@@ -29,3 +30,21 @@ jobs:
 
       - name: Run unit and architecture fitness tests
         run: ./mvnw test -B
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/nezerkc/sonido-vivo-backend:latest
+            ghcr.io/nezerkc/sonido-vivo-backend:${{ github.sha }}
