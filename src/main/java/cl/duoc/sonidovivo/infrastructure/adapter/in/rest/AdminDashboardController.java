@@ -1,16 +1,25 @@
 package cl.duoc.sonidovivo.infrastructure.adapter.in.rest;
 
 import cl.duoc.sonidovivo.application.port.in.DashboardUseCase;
+import cl.duoc.sonidovivo.application.port.in.DashboardUseCase.BatchPriceAdjustmentCommand;
+import cl.duoc.sonidovivo.application.port.in.DashboardUseCase.BatchPriceAdjustmentResult;
 import cl.duoc.sonidovivo.application.port.in.OracleIntegrationUseCase;
+import cl.duoc.sonidovivo.domain.model.Category;
 import cl.duoc.sonidovivo.domain.model.LiquidationResult;
+import cl.duoc.sonidovivo.domain.model.MoneyClp;
+import cl.duoc.sonidovivo.domain.model.ProductCode;
+import cl.duoc.sonidovivo.domain.model.SaleCommand;
 import cl.duoc.sonidovivo.domain.model.SaleResult;
 import cl.duoc.sonidovivo.infrastructure.adapter.in.rest.dto.BatchPriceAdjustmentResponseDTO;
 import cl.duoc.sonidovivo.infrastructure.adapter.in.rest.dto.DashboardMetricsResponseDTO;
 import cl.duoc.sonidovivo.infrastructure.adapter.in.rest.dto.PriceAdjustmentDTO;
 import cl.duoc.sonidovivo.infrastructure.adapter.in.rest.dto.SaleRequestDTO;
+import cl.duoc.sonidovivo.infrastructure.adapter.in.rest.dto.SaleResponseDTO;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.Map;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,42 +51,43 @@ public class AdminDashboardController {
 
     @GetMapping("/dashboard/metrics")
     public ResponseEntity<DashboardMetricsResponseDTO> getMetrics() {
-        // TODO (@dysandoval - Dylan Sandoval):
-        // 1. Invocar dashboardUseCase.getInventoryMetrics().
-        // 2. Mapear a DashboardMetricsResponseDTO.
-        // 3. Retornar ResponseEntity.ok(dto).
-        throw new UnsupportedOperationException("getMetrics pendiente de implementación por Dylan Sandoval (@dysandoval)");
+        return ResponseEntity.ok(
+                DashboardMetricsResponseDTO.fromDomain(dashboardUseCase.getInventoryMetrics())
+        );
     }
 
     @PostMapping("/operations/price-adjustment")
     public ResponseEntity<BatchPriceAdjustmentResponseDTO> applyPriceAdjustment(
             @Valid @RequestBody PriceAdjustmentDTO request
     ) {
-        // TODO (@dysandoval - Dylan Sandoval):
-        // 1. Parsear categoría opcional y construir BatchPriceAdjustmentCommand.
-        // 2. Invocar dashboardUseCase.applyBatchPriceAdjustment(command).
-        // 3. Retornar ResponseEntity.ok(BatchPriceAdjustmentResponseDTO.fromResult(result)).
-        throw new UnsupportedOperationException("applyPriceAdjustment pendiente de implementación por Dylan Sandoval (@dysandoval)");
+        Category category = (request.categoria() == null || request.categoria().isBlank())
+                ? null
+                : Category.fromString(request.categoria());
+
+        BatchPriceAdjustmentResult result = dashboardUseCase.applyBatchPriceAdjustment(
+                new BatchPriceAdjustmentCommand(request.porcentaje(), category, request.motivo())
+        );
+        return ResponseEntity.ok(BatchPriceAdjustmentResponseDTO.fromResult(result));
     }
 
     @PostMapping("/operations/sales")
-    public ResponseEntity<SaleResult> registerSale(@Valid @RequestBody SaleRequestDTO request) {
-        // TODO (@dysandoval - Dylan Sandoval):
-        // 1. Construir SaleCommand (customerId, ProductCode, quantity, MoneyClp).
-        // 2. Invocar oracleIntegrationUseCase.registerSale(command).
-        // 3. Retornar ResponseEntity.status(HttpStatus.CREATED).body(result).
-        throw new UnsupportedOperationException("registerSale pendiente de implementación por Dylan Sandoval (@dysandoval)");
+    public ResponseEntity<SaleResponseDTO> registerSale(@Valid @RequestBody SaleRequestDTO request) {
+        SaleCommand command = new SaleCommand(
+                request.customerId(),
+                ProductCode.of(request.productCode()),
+                request.quantity(),
+                MoneyClp.of(request.unitPriceClp())
+        );
+        SaleResult result = oracleIntegrationUseCase.registerSale(command);
+        return ResponseEntity.status(HttpStatus.CREATED).body(SaleResponseDTO.fromDomain(result));
     }
 
     @PostMapping("/operations/liquidations")
     public ResponseEntity<LiquidationResult> runCustomerLiquidation(
-            @RequestParam(required = false) LocalDate processDate
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate processDate
     ) {
-        // TODO (@dysandoval - Dylan Sandoval):
-        // 1. Normalizar fecha efectiva (LocalDate.now() si es nula).
-        // 2. Invocar oracleIntegrationUseCase.runCustomerLiquidation(effectiveDate).
-        // 3. Retornar ResponseEntity.ok(resultado).
-        throw new UnsupportedOperationException("runCustomerLiquidation pendiente de implementación por Dylan Sandoval (@dysandoval)");
+        LocalDate effectiveDate = processDate != null ? processDate : LocalDate.now();
+        return ResponseEntity.ok(oracleIntegrationUseCase.runCustomerLiquidation(effectiveDate));
     }
 
     @GetMapping("/operations/discount")
@@ -85,9 +95,7 @@ public class AdminDashboardController {
             @RequestParam String customerId,
             @RequestParam long grossAmountClp
     ) {
-        // TODO (@dysandoval - Dylan Sandoval):
-        // 1. Invocar oracleIntegrationUseCase.calculateDiscount(customerId, grossAmountClp).
-        // 2. Retornar ResponseEntity.ok(Map.of("discountClp", discountClp)).
-        throw new UnsupportedOperationException("calculateDiscount pendiente de implementación por Dylan Sandoval (@dysandoval)");
+        long discountClp = oracleIntegrationUseCase.calculateDiscount(customerId, grossAmountClp);
+        return ResponseEntity.ok(Map.of("discountClp", discountClp));
     }
 }
