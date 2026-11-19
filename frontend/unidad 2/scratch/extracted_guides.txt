@@ -1,0 +1,1329 @@
+
+
+==================== 2.1.2 Actividad Individual Explorando React Bootstrap.pdf ====================
+
+--- Page 1 ---
+ 
+   
+                                            
+ 
+ 
+ 
+| GUÍA 2.1.2: 
+Configuración de React Bootstrap en un entorno de 
+desarrollo en EC2  de AWS 
+Sigla 
+Asignatura 
+Experiencia de Aprendizaje 
+DSY1104 
+Desarrollo Full Stack II 
+EA Creación y Configuración de 
+Sitios Web 
+Tiempo 
+Modalidad de Trabajo 
+Indicadores de logro 
+2 h 
+Individual 
+IL 1.1 
+ 
+ 
+        Antecedentes generales 
+ 
+Esta guía tiene como objetivo enumerar las acciones necesarias para dar solución a los 
+problemas planteados. 
+ 
+ 
+ 
+ Requerimientos para esta actividad 
+ 
+Para el desarrollo de esta actividad deberás disponer de: 
+ 
+● Computador 
+● AWS – EC2 
+ 
+ 
+ 
+Actividad   
+ 
+ 
+ 
+ 
+Esta actividad consiste en enumerar las acciones necesarias para dar solución a los casos 
+que se verán a continuación, para ello los estudiantes deberán realizar la actividad de forma 
+individual. 
+ 
+Sigue las Instrucciones 
+1. Ingresa a awsacademy - > Laboratorio de aprendizaje de AWS Academy 
+2. Presiona el link módulos y luego presionar Students -> Se abrirá una nueva pestaña 
+llamada vocareum 
+ 
+
+--- Page 2 ---
+ 
+   
+                                            
+ 
+ 
+ 
+ 
+3. Presionar Start Lab. (Cuando el logo de AWS este verde presionarlo) 
+ 
+4. Se abrirá la Página de inicio de la Consola, ahí presionar EC2 
+ 
+5. Del Panel de EC2 -> Presionar Instancias  
+ 
+6. Presionar Lanzar Instancias 
+ 
+7. Agregar Nombre y etiquetas -> reactBootstrap 
+ 
+8. Seleccionar Ubuntu 22.04 en Imágenes de aplicaciones y sistemas operativos 
+(Imagen de máquina de Amazon) 
+ 
+
+--- Page 3 ---
+ 
+   
+                                            
+ 
+ 
+ 
+9. Tipo de Instancia t2.micro 
+ 
+10. Crear un par de claves -> Crear un nuevo par de claves 
+ 
+11. Colocar el nombre userReact presionar Crear par de claves. Se descargará un 
+archivo llamado userReact.pem 
+ 
+ 
+
+--- Page 4 ---
+ 
+   
+                                            
+ 
+ 
+ 
+12. En Configuraciones de red, presionar HTTPS , HTTP. Luego presionar -> Editar y 
+agregar regla del grupo de seguridad: TCP Personalizado – puerto: 3000 y desde 
+Cualquier lugar 
+ 
+13. En Configuración de Almacenamiento, cambia a 20 GB 
+ 
+ 
+14. Presionar Lanzar instancia 
+ 
+ 
+15. Si todo esta bien configurado, debería salir el siguiente mensaje: 
+ 
+16. Volver a EC2 > Instancias y presionar Conectar 
+ 
+17. Se abrirá una nueva pestaña de conexión y copia el código que esta enmarcado en 
+rojo: 
+
+--- Page 5 ---
+ 
+   
+                                            
+ 
+ 
+ 
+18. Abre un CMD y ejecútalo como administrador. Debes dirigirte a la dirección donde 
+esta userReact.pem y copiar el ejemplo anterior y colocar yes 
+ 
+19. Ya estando conectado remotamente a la instancia reactBootstrap debes actualizar 
+el sistema e instalación de dependencias del sistema operativo Ubuntu 22.04 con 
+sudo apt-get update y sudo apt-get upgrade  o sudo yum update -y, y luego sudo 
+yum install -y gcc-c++ make 
+ 
+20.  Instalación de Node.js y npm 
+Instala Node.js usando el administrador de versiones nvm: 
+```bash 
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash 
+. ~/.nvm/nvm.sh 
+ nvm install 14 
+``` 
+ 
+ 
+ 
+ 
+
+--- Page 6 ---
+ 
+   
+                                            
+ 
+ 
+ 
+21. Verifica la instalación: 
+  ```bash 
+  node --version 
+  npm --version 
+  ``` 
+22. Creación de un nuevo proyecto React 
+- Crea y navega al directorio del proyecto: 
+  ```bash 
+  mkdir my-ecommerce-app 
+  cd my-ecommerce-app 
+  npx create-react-app . 
+  ``` 
+23. Instalación de dependencias (Bootstrap, react-bootstrap) 
+- Dentro del directorio del proyecto, ejecuta: 
+  ```bash 
+  npm install react-bootstrap bootstrap 
+  ``` 
+24. 
+Estructura del Proyecto React en EC2 
+La estructura de tu proyecto en la instancia EC2 paravisualizarla instalar tree: 
+``` 
+sudo apt-get install tree 
+tree 
+``` 
+ 
+ 
+ 
+ 
+
+--- Page 7 ---
+ 
+   
+                                            
+ 
+ 
+``` 
+/home/ec2-user/my-ecommerce-app/ 
+│ 
+├── node_modules/ 
+│ 
+├── public/ 
+│   ├── index.html 
+│   ├── favicon.ico 
+│   └── manifest.json 
+│ 
+├── src/ 
+│   ├── components/   (crearemos esta carpeta) 
+│   │   ├── Navbar.js 
+│   │   ├── ProductList.js 
+│   │   ├── ShoppingCart.js 
+│   │   └── RegistrationForm.js 
+│   ├── App.js 
+│   ├── App.css 
+│   ├── index.js 
+│   └── index.css 
+│ 
+├── package.json 
+├── package-lock.json 
+└── README.md 
+``` 
+24. 
+Para crear la estructura de carpetas: 
+```bash 
+mkdir src/components 
+touch src/components/{Navbar.js,ProductList.js,ShoppingCart.js,RegistrationForm.js} 
+ls 
+``` 
+
+--- Page 8 ---
+ 
+   
+                                            
+ 
+ 
+ 
+25. 
+Configuración de Bootstrap en el proyecto 
+- Edita `src/index.js` usando nano o vim: 
+  ```bash 
+  nano src/index.js 
+  ``` 
+-  Añade la siguiente línea al principio del archivo: 
+  ```javascript 
+  import 'bootstrap/dist/css/bootstrap.min.css'; 
+  `` 
+Presionar:  ctrl + o , y luego ctrl + x para guardar 
+26. 
+Edita `src/App.js`: 
+  ```bash 
+  nano src/App.js 
+  ``` 
+- Reemplaza el contenido con: 
+```jsx 
+import React from 'react'; 
+import { Container, Row, Col } from 'react-bootstrap'; 
+import Navbar from './components/Navbar'; 
+import ProductList from './components/ProductList'; 
+import ShoppingCart from './components/ShoppingCart'; 
+import RegistrationForm from './components/RegistrationForm'; 
+function App() { 
+  return ( 
+    <div className="App"> 
+      <Navbar /> 
+      <Container> 
+        <Row> 
+          <Col md={8}> 
+            <ProductList /> 
+
+--- Page 9 ---
+ 
+   
+                                            
+ 
+ 
+          </Col> 
+          <Col md={4}> 
+            <ShoppingCart /> 
+          </Col> 
+        </Row> 
+        <Row> 
+          <Col md={12}> 
+            <RegistrationForm /> 
+          </Col> 
+        </Row> 
+      </Container> 
+    </div> 
+  ); 
+} 
+export default App; 
+``` 
+27. 
+Crea y edita `src/components/Navbar.js`: 
+  ```bash 
+  nano src/components/Navbar.js 
+  ``` 
+- Añade el siguiente contenido: 
+```jsx 
+import React from 'react'; 
+import { Navbar, Nav, Container } from 'react-bootstrap'; 
+ 
+const Navigation = () => { 
+  return ( 
+    <Navbar bg="light" expand="lg"> 
+      <Container> 
+        <Navbar.Brand href="#home">Mi Tienda</Navbar.Brand> 
+        <Navbar.Toggle aria-controls="basic-navbar-nav" /> 
+
+--- Page 10 ---
+ 
+   
+                                            
+ 
+ 
+        <Navbar.Collapse id="basic-navbar-nav"> 
+          <Nav className="me-auto"> 
+            <Nav.Link href="#home">Inicio</Nav.Link> 
+            <Nav.Link href="#products">Productos</Nav.Link> 
+            <Nav.Link href="#cart">Carrito</Nav.Link> 
+            <Nav.Link href="#register">Registro</Nav.Link> 
+          </Nav> 
+        </Navbar.Collapse> 
+      </Container> 
+    </Navbar> 
+  ); 
+}; 
+export default Navigation; 
+``` 
+28. 
+Crea y edita los componentes restantes. Por ejemplo, para `ProductList.js`: 
+  ```bash 
+  nano src/components/ProductList.js 
+  ``` 
+- Añade un contenido básico: 
+```jsx 
+import React from 'react'; 
+const ProductList = () => { 
+  return ( 
+    <div> 
+      <h2>Lista de Productos</h2> 
+      {/* Aquí irá la lista de productos */} 
+    </div> 
+  ); 
+}; 
+export default ProductList; 
+``` 
+
+--- Page 11 ---
+ 
+   
+                                            
+ 
+ 
+ 
+29. 
+Repite este proceso para `ShoppingCart.js` y `RegistrationForm.js` 
+30. 
+Preparación para ejecutar la aplicación 
+- Por defecto, create-react-app configura la aplicación para escuchar solo en localhost. Para 
+permitir el acceso desde fuera de la instancia EC2, necesitamos modificar el script de inicio. 
+- Edita `package.json`: 
+  ```bash 
+  nano package.json 
+  ``` 
+- Busca la línea `"start": "react-scripts start",` y cámbiala por: 
+  ```json 
+  "start": "PORT=3000 DANGEROUSLY_DISABLE_HOST_CHECK=true react-scripts 
+start", 
+  ``` 
+31. 
+Configuración de seguridad en EC2 
+- Asegúrate de que el puerto 3000 esté abierto en el grupo de seguridad de tu instancia 
+EC2. 
+  ```bash 
+curl http://tu-ip-publica:3000 
+  ``` 
+32. 
+Ejecutar la aplicación 
+- Inicia la aplicación: 
+  ```bash 
+  npm start 
+  ``` 
+- Accede a tu aplicación desde un navegador usando la IP pública de tu instancia EC2: 
+`http://tu-ip-publica:3000` 
+ 
+Nota: Este método es para desarrollo. Para producción, se recomienda construir la 
+aplicación y servirla con un servidor web como Nginx. 
+ 
+33. Debería levantar la App 
+ 
+ 
+Recursos de apoyo 
+ 
+• 
+Documentación Create React App:  https://cra.link/deployment 
+ 
+
+
+==================== 2.2.2 Actividad de creación de sitios web responsivos.pdf ====================
+
+--- Page 1 ---
+ 
+   
+                                            
+ 
+ 
+ 
+| GUÍA 2.2.2: 
+Configuración de React en un entorno de desarrollo 
+en EC2  de AWS 
+Sigla 
+Asignatura 
+Experiencia de Aprendizaje 
+DSY1104 
+Desarrollo Full Stack II 
+EA Creación y Configuración de 
+Sitios Web 
+Tiempo 
+Modalidad de Trabajo 
+Indicadores de logro 
+2 h 
+Individual 
+IL 1.1 
+ 
+ 
+        Antecedentes generales 
+ 
+Esta guía tiene como objetivo enumerar las acciones necesarias para dar solución a los 
+problemas planteados. 
+ 
+ 
+ 
+ Requerimientos para esta actividad 
+ 
+Para el desarrollo de esta actividad deberás disponer de: 
+ 
+● Computador 
+● AWS – EC2 
+ 
+ 
+ 
+Actividad   
+ 
+ 
+ 
+ 
+Esta actividad consiste en enumerar las acciones necesarias para dar solución a los casos 
+que se verán a continuación, para ello los estudiantes deberán realizar la actividad de forma 
+individual. 
+ 
+Sigue las Instrucciones 
+ 
+1. Ingresar a EC2 > Instancias y presionar Conectar 
+ 
+2. Se abrirá una nueva pestaña de conexión y copia el código que esta enmarcado en 
+rojo: 
+
+--- Page 2 ---
+ 
+   
+                                            
+ 
+ 
+ 
+3. Abre un CMD y ejecútalo como administrador. Debes dirigirte a la dirección donde 
+esta userReact.pem y copiar el ejemplo anterior y colocar yes 
+ 
+4. Creación de un nuevo proyecto React 
+ 
+Instala create-react-app globalmente:  npm install -g create-react-app 
+ 
+ 
+ 
+5. Crea un nuevo proyecto React 
+ 
+npx create-react-app my-react-app 
+cd my-react-app 
+ 
+ 
+ 
+6. Instala Bootstrap: npm install Bootstrap 
+ 
+ 
+ 
+7. Importa Bootstrap en el archivo principal (src/index.js o src/App.js): 
+Usa el comando find para buscar los archivos:  
+find . -name "index.js" 
+
+--- Page 3 ---
+ 
+   
+                                            
+ 
+ 
+find . -name "App.js" 
+Esto te mostrará las rutas a index.js y App.js. Deberías ver algo como: 
+ 
+ 
+ 
+Usa un editor de texto como nano o vim para editar el archivo. Por ejemplo, si 
+quieres editar index.js: 
+nano src/index.js 
+O si quieres editar App.js: 
+nano src/App.js 
+ 
+Agrega la siguiente línea al principio del archivo index.js o App.js: 
+ 
+ 
+ 
+Si estás usando nano, presiona Ctrl + O para guardar y Ctrl + X para salir. Si estás 
+usando vim, presiona Esc, escribe :wq y presiona Enter para guardar y salir. 
+ 
+8. Instala React Bootstrap: npm install react-bootstrap 
+ 
+9. Usa un componente de React Bootstrap en tu aplicación (src/App.js): 
+´´´ jsx 
+import React from 'react'; 
+import { Button } from 'react-bootstrap'; 
+function App() { 
+  return ( 
+    <div className="App"> 
+      <Button variant="primary">Clic aquí</Button> 
+    </div> 
+  ); 
+} 
+export default App; 
+´´´ 
+10. Crea un formulario controlado en src/LoginForm.js: 
+ 
+ 
+
+--- Page 4 ---
+ 
+   
+                                            
+ 
+ 
+´´´ jsx 
+import React, { useState } from 'react'; 
+function LoginForm() { 
+  const [username, setUsername] = useState(''); 
+  const [password, setPassword] = useState(''); 
+  const handleSubmit = (event) => { 
+    event.preventDefault(); 
+    console.log('Login:', username, password); 
+  }; 
+  return ( 
+    <form onSubmit={handleSubmit}> 
+      <input 
+        type="text" 
+        value={username} 
+        onChange={(e) => setUsername(e.target.value)} 
+      /> 
+      <input 
+        type="password" 
+        value={password} 
+        onChange={(e) => setPassword(e.target.value)} 
+      /> 
+      <button type="submit">Login</button> 
+    </form> 
+  ); 
+} 
+export default LoginForm; 
+´´´ 
+11. Importa y usa el formulario en src/App.js: 
+´´´jsx 
+import React from 'react'; 
+import { Button } from 'react-bootstrap'; 
+import LoginForm from './LoginForm'; 
+ 
+
+--- Page 5 ---
+ 
+   
+                                            
+ 
+ 
+function App() { 
+  return ( 
+    <div className="App"> 
+      <Button variant="primary">Clic aquí</Button> 
+      <LoginForm /> 
+    </div> 
+  ); 
+} 
+export default App; 
+´´´ 
+12. Crea un formulario con validación básica en src/ValidatedForm.js: 
+´´´jsx 
+import React, { useState } from 'react'; 
+ 
+function ValidatedForm() { 
+  const [email, setEmail] = useState(''); 
+  const [error, setError] = useState(''); 
+  const handleSubmit = (event) => { 
+    event.preventDefault(); 
+    if (!email.includes('@')) { 
+      setError('Email inválido'); 
+    } else { 
+      setError(''); 
+      // Procesar el formulario 
+    } 
+  }; 
+  return ( 
+    <form onSubmit={handleSubmit}> 
+      <input 
+        type="email" 
+        value={email} 
+        onChange={(e) => setEmail(e.target.value)} 
+      /> 
+
+--- Page 6 ---
+ 
+   
+                                            
+ 
+ 
+      {error && <p style={{ color: 'red' }}>{error}</p>} 
+      <button type="submit">Enviar</button> 
+    </form> 
+  ); 
+} 
+export default ValidatedForm; 
+´´´ 
+13. Importa y usa el formulario en src/App.js: 
+´´´jsx 
+import React from 'react'; 
+import { Button } from 'react-bootstrap'; 
+import LoginForm from './LoginForm'; 
+import ValidatedForm from './ValidatedForm'; 
+function App() { 
+  return ( 
+    <div className="App"> 
+      <Button variant="primary">Clic aquí</Button> 
+      <LoginForm /> 
+      <ValidatedForm /> 
+    </div> 
+  ); 
+} 
+export default App; 
+´´´ 
+14. Instala react-hook-form 
+ 
+15. Crea un formulario usando react-hook-form en src/HookForm.js: 
+ 
+´´´jsx 
+import React from 'react'; 
+import { useForm } from 'react-hook-form'; 
+ 
+function HookForm() { 
+  const { register, handleSubmit, errors } = useForm(); 
+  const onSubmit = data => console.log(data); 
+ 
+
+--- Page 7 ---
+ 
+   
+                                            
+ 
+ 
+  return ( 
+    <form onSubmit={handleSubmit(onSubmit)}> 
+      <input 
+        name="email" 
+        ref={register({ required: true, pattern: /^\S+@\S+$/i })} 
+      /> 
+      {errors.email && <span>Este campo es requerido y debe ser un email válido</span>} 
+      <input type="submit" /> 
+    </form> 
+  ); 
+} 
+ 
+export default HookForm; 
+ 
+´´´ 
+16. Importa y usa el formulario en src/App.js: 
+´´´jsx 
+import React from 'react'; 
+import { Button } from 'react-bootstrap'; 
+import LoginForm from './LoginForm'; 
+import ValidatedForm from './ValidatedForm'; 
+import HookForm from './HookForm'; 
+function App() { 
+  return ( 
+    <div className="App"> 
+      <Button variant="primary">Clic aquí</Button> 
+      <LoginForm /> 
+      <ValidatedForm /> 
+      <HookForm /> 
+    </div> 
+  ); 
+} 
+export default App; 
+´´´ 
+17. Configuración de seguridad en EC2 
+- Asegúrate de que el puerto 3000 esté abierto en el grupo de seguridad de tu 
+instancia EC2. 
+   
+```bash 
+curl http://tu-ip-publica:3000 
+   
+``` 
+18. Ejecutar la aplicación 
+
+--- Page 8 ---
+ 
+   
+                                            
+ 
+ 
+- Inicia la aplicación: 
+   
+```bash 
+   
+npm start 
+  
+ ``` 
+- Accede a tu aplicación desde un navegador usando la IP pública de tu instancia 
+EC2: `http://tu-ip-publica:3000` 
+ 
+Nota: Este método es para desarrollo. Para producción, se recomienda construir la 
+aplicación y servirla con un servidor web como Nginx. 
+ 
+19. Debería levantar la App 
+ 
+ 
+Recursos de apoyo 
+ 
+• 
+Documentación Create React App:  https://cra.link/deployment 
+ 
+
+
+==================== 2.3.2  Configuración de pruebas unitarias en proyectos front-end.pdf ====================
+
+--- Page 1 ---
+ 
+   
+                                            
+ 
+ 
+ 
+| GUÍA 2.3.2 
+Configuración de pruebas unitarias en proyectos front-end 
+Sigla 
+Asignatura 
+Experiencia de Aprendizaje 
+DSY1104 
+Desarrollo Full Stack II 
+EA Configuración de Jasmine y 
+Karma 
+Tiempo 
+Modalidad de Trabajo 
+Indicadores de logro 
+2 h 
+Individual 
+IL 2.2 
+ 
+ 
+        Antecedentes generales 
+ 
+Esta guía tiene como objetivo enumerar las acciones necesarias para dar solución a los 
+problemas planteados. 
+ 
+ 
+ 
+ Requerimientos para esta actividad 
+ 
+Para el desarrollo de esta actividad deberás disponer de: 
+ 
+● Computador 
+● AWS – EC2 
+ 
+ 
+ 
+Actividad   
+ 
+ 
+ 
+ 
+Esta actividad consiste en enumerar las acciones necesarias para dar solución a los casos 
+que se verán a continuación, para ello los estudiantes deberán realizar la actividad de forma 
+individual. 
+ 
+Sigue las Instrucciones 
+ 
+1. Ingresar a EC2 > Instancias y presionar Conectar 
+ 
+2. Se abrirá una nueva pestaña de conexión y copia el código que esta enmarcado en 
+rojo: 
+
+--- Page 2 ---
+ 
+   
+                                            
+ 
+ 
+ 
+3. Abre un CMD y ejecútalo como administrador. Debes dirigirte a la dirección donde 
+esta userReact.pem y copiar el ejemplo anterior y colocar yes 
+ 
+4. Instalación de dependencias 
+ 
+```bash 
+npm install --save-dev karma karma-jasmine jasmine-core karma-chrome-launcher 
+``` 
+ 
+5. Configuración de Karma 
+ 
+```javascript 
+// karma.conf.js 
+module.exports = function(config) { 
+  config.set({ 
+    frameworks: ['jasmine'], 
+    files: [ 
+      'src/**/*.js', 
+      'test/**/*.js' 
+    ], 
+    browsers: ['ChromeHeadless'], 
+    singleRun: true 
+  }); 
+}; 
+``` 
+ 
+6. Estructura de una prueba Jasmine 
+ 
+```javascript 
+describe('Componente', () => { 
+  it('debería hacer algo específico', () => { 
+    expect(true).toBe(true); 
+  }); 
+}); 
+``` 
+ 
+ 
+
+--- Page 3 ---
+ 
+   
+                                            
+ 
+ 
+ 
+7. Probando un componente React simple 
+```javascript 
+import React from 'react'; 
+import { render } from '@testing-library/react'; 
+import MiComponente from './MiComponente'; 
+describe('MiComponente', () => { 
+  it('renderiza correctamente', () => { 
+    const { getByText } = render(<MiComponente />); 
+    expect(getByText('Hola Mundo')).toBeInTheDocument(); 
+  }); 
+}); 
+``` 
+8. Ejemplo de mock con Jasmine 
+ 
+```javascript 
+describe('ServicioAPI', () => { 
+  let servicioAPI; 
+ 
+  beforeEach(() => { 
+    servicioAPI = jasmine.createSpyObj('ServicioAPI', ['getData']); 
+    servicioAPI.getData.and.returnValue(Promise.resolve({ data: 'test' })); 
+  }); 
+ 
+  it('debería llamar a getData', async () => { 
+    await servicioAPI.getData(); 
+    expect(servicioAPI.getData).toHaveBeenCalled(); 
+  }); 
+}); 
+``` 
+ 
+9. Probando cambios de estado 
+ 
+```javascript 
+import { render, fireEvent } from '@testing-library/react'; 
+ 
+test('incrementa el contador cuando se hace clic', () => { 
+  const { getByText } = render(<Contador />); 
+  const boton = getByText('Incrementar'); 
+  fireEvent.click(boton); 
+  expect(getByText('Contador: 1')).toBeInTheDocument(); 
+}); 
+``` 
+ 
+10. Simulación de eventos del usuario 
+ 
+```javascript 
+test('llama a onSubmit cuando se envía el formulario', () => { 
+  const onSubmit = jasmine.createSpy('onSubmit'); 
+  const { getByText } = render(<Formulario onSubmit={onSubmit} />); 
+
+--- Page 4 ---
+ 
+   
+                                            
+ 
+ 
+  fireEvent.click(getByText('Enviar')); 
+  expect(onSubmit).toHaveBeenCalled(); 
+}); 
+``` 
+ 
+11. Testeando hooks con renderHook 
+ 
+```javascript 
+import { renderHook, act } from '@testing-library/react-hooks'; 
+import useContador from './useContador'; 
+ 
+test('debería incrementar el contador', () => { 
+  const { result } = renderHook(() => useContador()); 
+  act(() => { 
+    result.current.incrementar(); 
+  }); 
+  expect(result.current.contador).toBe(1); 
+}); 
+``` 
+ 
+12. Mocking de llamadas a API 
+ 
+```javascript 
+import axios from 'axios'; 
+jest.mock('axios'); 
+ 
+test('fetches datos exitosamente', async () => { 
+  const datos = { id: 1, nombre: 'Test' }; 
+  axios.get.mockResolvedValue({ data: datos }); 
+  const result = await fetchDatos(); 
+  expect(result).toEqual(datos); 
+}); 
+``` 
+ 
+13. Configuración de cobertura en Karma 
+ 
+```javascript 
+// karma.conf.js 
+module.exports = function(config) { 
+  config.set({ 
+    // ... 
+    reporters: ['progress', 'coverage'], 
+    preprocessors: { 
+      'src/**/*.js': ['coverage'] 
+    }, 
+    coverageReporter: { 
+      type: 'html', 
+      dir: 'coverage/' 
+    } 
+  }); 
+}; 
+``` 
+ 
+14. Paralelización de pruebas 
+ 
+```javascript 
+// karma.conf.js 
+module.exports = function(config) { 
+  config.set({ 
+    // ... 
+    concurrency: 2 // Ajustar según recursos disponibles 
+
+--- Page 5 ---
+ 
+   
+                                            
+ 
+ 
+  }); 
+}; 
+``` 
+ 
+15. Ejemplo de buildspec.yml para CodeBuild 
+ 
+```yaml 
+version: 0.2 
+phases: 
+  install: 
+    runtime-versions: 
+      nodejs: 14 
+    commands: 
+      - npm install 
+  build: 
+    commands: 
+      - npm test 
+``` 
+ 
+16. Medición de tiempos de renderizado 
+ 
+```javascript 
+import { render } from '@testing-library/react'; 
+import { performance } from 'perf_hooks'; 
+ 
+test('renderiza rápidamente', () => { 
+  const start = performance.now(); 
+  render(<ComponentePesado />); 
+  const end = performance.now(); 
+  expect(end - start).toBeLessThan(100); // menos de 100ms 
+}); 
+``` 
+ 
+17. Pruebas de manejo de errores 
+ 
+```javascript 
+test('maneja errores de API correctamente', async () => { 
+  axios.get.mockRejectedValue(new Error('API Error')); 
+  await expect(fetchDatos()).rejects.toThrow('API Error'); 
+}); 
+ 
+ 
+18. Integración de pruebas de accesibilidad 
+ 
+```javascript 
+import { axe } from 'jest-axe'; 
+ 
+test('no tiene violaciones de accesibilidad', async () => { 
+  const { container } = render(<MiComponente />); 
+  const results = await axe(container); 
+  expect(results).toHaveNoViolations(); 
+}); 
+``` 
+ 
+19. Ejemplo de documentación de prueba 
+ 
+```javascript 
+/** 
+ * Prueba la funcionalidad de login 
+ * @param {string} username - Nombre de usuario 
+ * @param {string} password - Contraseña 
+
+--- Page 6 ---
+ 
+   
+                                            
+ 
+ 
+ * @returns {boolean} - true si el login es exitoso 
+ */ 
+test('realiza login correctamente', () => { 
+  // ... 
+}); 
+``` 
+ 
+20. Configuración de seguridad en EC2 
+- Asegúrate de que el puerto 3000 esté abierto en el grupo de seguridad de tu 
+instancia EC2. 
+   
+```bash 
+curl http://tu-ip-publica:3000 
+   
+``` 
+21. Ejecutar la aplicación 
+- Inicia la aplicación: 
+   
+```bash 
+   
+npm start 
+  
+ ``` 
+- Accede a tu aplicación desde un navegador usando la IP pública de tu instancia 
+EC2: `http://tu-ip-publica:3000` 
+ 
+Nota: Este método es para desarrollo. Para producción, se recomienda construir la 
+aplicación y servirla con un servidor web como Nginx. 
+ 
+22. Debería levantar la App 
+ 
+ 
+Recursos de apoyo 
+ 
+• 
+Documentación Create React App:  https://cra.link/deployment 
+ 
+
+
+==================== 2.3.3 Creación de pruebas unitarias en componentes front-end.pdf ====================
+
+--- Page 1 ---
+ 
+   
+                                            
+ 
+ 
+ 
+| GUÍA 2.3.3 
+Configuración de pruebas unitarias en componentes front-end 
+Sigla 
+Asignatura 
+Experiencia de Aprendizaje 
+DSY1104 
+Desarrollo Full Stack II 
+EA Configuración de Jasmine y 
+Karma 
+Tiempo 
+Modalidad de Trabajo 
+Indicadores de logro 
+2 h 
+Individual 
+IL 2.2 – IL 2.3 
+ 
+ 
+        Antecedentes generales 
+ 
+Esta guía tiene como objetivo enumerar las acciones necesarias para dar solución a los 
+problemas planteados. 
+ 
+ 
+ 
+ Requerimientos para esta actividad 
+ 
+Para el desarrollo de esta actividad deberás disponer de: 
+ 
+● Computador 
+● AWS – EC2 
+ 
+ 
+ 
+Actividad   
+ 
+ 
+ 
+ 
+Esta actividad consiste en enumerar las acciones necesarias para dar solución a los casos 
+que se verán a continuación, para ello los estudiantes deberán realizar la actividad de forma 
+individual. 
+ 
+Sigue las Instrucciones 
+ 
+1. Ingresar a EC2 > Instancias y presionar Conectar 
+ 
+2. Se abrirá una nueva pestaña de conexión y copia el código que esta enmarcado en 
+rojo: 
+
+--- Page 2 ---
+ 
+   
+                                            
+ 
+ 
+ 
+3. Abre un CMD y ejecútalo como administrador. Debes dirigirte a la dirección donde 
+esta userReact.pem y copiar el ejemplo anterior y colocar yes 
+ 
+4. Instalación de herramientas de testeo 
+ 
+```bash 
+npm install --save-dev jest @testing-library/react @testing-library/jest-dom 
+``` 
+ 
+ 
+5. Ejemplo de componente optimizado 
+ 
+```jsx 
+import React, { lazy, Suspense } from 'react'; 
+ 
+const LazyComponent = lazy(() => import('./LazyComponent')); 
+ 
+function OptimizedApp() { 
+  return ( 
+    <Suspense fallback={<div>Cargando...</div>}> 
+      <LazyComponent /> 
+    </Suspense> 
+  ); 
+} 
+``` 
+ 
+6. Estructura básica de pruebas unitarias 
+ 
+```javascript 
+import { render, screen } from '@testing-library/react'; 
+import MiComponente from './MiComponente'; 
+ 
+test('renderiza el componente correctamente', () => { 
+  render(<MiComponente />); 
+  expect(screen.getByText('Texto esperado')).toBeInTheDocument(); 
+}); 
+``` 
+
+--- Page 3 ---
+ 
+   
+                                            
+ 
+ 
+ 
+7. Mocking de dependencias 
+ 
+```javascript 
+jest.mock('./api'); 
+import { fetchData } from './api'; 
+ 
+test('maneja la carga de datos', async () => { 
+  fetchData.mockResolvedValue({ id: 1, name: 'Test' }); 
+  // ... resto del test 
+}); 
+``` 
+ 
+ 
+8. Ejemplo de prueba de integración 
+ 
+```javascript 
+import { render, screen, waitFor } from '@testing-library/react'; 
+import userEvent from '@testing-library/user-event'; 
+import App from './App'; 
+ 
+test('flujo de login completo', async () => { 
+  render(<App />); 
+  userEvent.type(screen.getByLabelText('Usuario'), 'testuser'); 
+  userEvent.type(screen.getByLabelText('Contraseña'), 'password'); 
+  userEvent.click(screen.getByText('Iniciar sesión')); 
+  await waitFor(() => 
+expect(screen.getByText('Bienvenido')).toBeInTheDocument()); 
+}); 
+``` 
+ 
+9. Herramienta de medición de rendimiento 
+ 
+```javascript 
+import { performance } from 'perf_hooks'; 
+ 
+function medirRendimiento(componente) { 
+  const inicio = performance.now(); 
+  render(componente); 
+  const fin = performance.now(); 
+  console.log(`Tiempo de renderizado: ${fin - inicio} ms`); 
+} 
+``` 
+ 
+10. Pruebas de inyección de código 
+ 
+```javascript 
+test('previene inyección XSS', () => { 
+  render(<Input />); 
+  userEvent.type(screen.getByRole('textbox'), '<script>alert("XSS")</script>'); 
+  expect(screen.getByRole('textbox')).toHaveValue('<script>alert("XSS")</script>'); 
+  expect(document.body.innerHTML).not.toContain('<script>alert("XSS")</script>'); 
+}); 
+``` 
+ 
+11. Implementación de pruebas de accesibilidad 
+ 
+```javascript 
+import { axe } from 'jest-axe'; 
+ 
+test('no tiene violaciones de accesibilidad', async () => { 
+
+--- Page 4 ---
+ 
+   
+                                            
+ 
+ 
+  const { container } = render(<App />); 
+  const results = await axe(container); 
+  expect(results).toHaveNoViolations(); 
+}); 
+``` 
+ 
+12. Configuración de Jest para t2.micro (AWS) 
+ 
+```javascript 
+// jest.config.js 
+module.exports = { 
+  maxWorkers: 2, // Limitar el número de workers 
+  maxConcurrency: 1, // Ejecutar tests en serie 
+}; 
+``` 
+13. Ejemplo de buildspec.yml 
+```yaml 
+version: 0.2 
+phases: 
+  install: 
+    runtime-versions: 
+      nodejs: 14 
+  pre_build: 
+    commands: 
+      - npm install 
+  build: 
+    commands: 
+      - npm test 
+      - npm run build 
+artifacts: 
+  files: 
+    - '**/*' 
+  base-directory: 'build' 
+``` 
+14. Logging efectivo 
+```javascript 
+const winston = require('winston'); 
+const logger = winston.createLogger({ 
+  level: 'info', 
+
+--- Page 5 ---
+ 
+   
+                                            
+ 
+ 
+  format: winston.format.json(), 
+  transports: [ 
+    new winston.transports.Console(), 
+    new winston.transports.File({ filename: 'error.log', level: 'error' }) 
+  ] 
+}); 
+``` 
+15. Configuración de seguridad en EC2 
+- Asegúrate de que el puerto 3000 esté abierto en el grupo de seguridad de tu 
+instancia EC2. 
+   
+```bash 
+curl http://tu-ip-publica:3000 
+   
+``` 
+16. Ejecutar la aplicación 
+- Inicia la aplicación: 
+   
+```bash 
+   
+npm start 
+  
+ ``` 
+- Accede a tu aplicación desde un navegador usando la IP pública de tu instancia 
+EC2: `http://tu-ip-publica:3000` 
+ 
+Nota: Este método es para desarrollo. Para producción, se recomienda construir la 
+aplicación y servirla con un servidor web como Nginx. 
+ 
+17. Debería levantar la App 
+ 
+ 
+Recursos de apoyo 
+ 
+• 
+Documentación Create React App:  https://cra.link/deployment 
+ 
