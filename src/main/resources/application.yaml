@@ -36,3 +36,10 @@ management:
       show-details: when-authorized
       probes:
         enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    persist-authorization: true
+    operations-sorter: method
+
