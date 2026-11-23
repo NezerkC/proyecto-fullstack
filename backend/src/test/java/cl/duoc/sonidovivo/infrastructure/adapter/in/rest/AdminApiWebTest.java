@@ -45,6 +45,7 @@ import cl.duoc.sonidovivo.infrastructure.config.CorsConfig;
 import cl.duoc.sonidovivo.infrastructure.config.JwtAuthenticationFilter;
 import cl.duoc.sonidovivo.infrastructure.config.JwtService;
 import cl.duoc.sonidovivo.infrastructure.config.SecurityConfig;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -95,6 +96,14 @@ class AdminApiWebTest {
 
     private String adminToken() {
         return jwtService.generateToken("admin", List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+    }
+
+    private String vendedorToken() {
+        return jwtService.generateToken("vendedor", List.of(new SimpleGrantedAuthority("ROLE_VENDEDOR")));
+    }
+
+    private String clienteToken() {
+        return jwtService.generateToken("usuario", List.of(new SimpleGrantedAuthority("ROLE_CLIENTE")));
     }
 
     private String bearer() {
@@ -713,5 +722,206 @@ class AdminApiWebTest {
                 .andExpect(jsonPath("$.error").exists())
                 .andExpect(jsonPath("$.message").exists())
                 .andExpect(jsonPath("$.path").value("/api/v1/admin/products/G-XXX-NONE-99"));
+    }
+
+    // ============================================================ Multi-Role & Public / Store Access Tests
+
+    @Test
+    void publicProductsEndpointsAreAccessibleWithoutAuthentication() throws Exception {
+        when(productUseCase.listProductsPaged(eq(0), eq(50), isNull(), isNull()))
+                .thenReturn(List.of(sampleProduct()));
+        when(productUseCase.getProductByCode(ProductCode.of(VALID_CODE)))
+                .thenReturn(sampleProduct());
+
+        mvc.perform(get("/api/v1/public/products"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].codigo").value(VALID_CODE));
+
+        mvc.perform(get("/api/v1/public/products/" + VALID_CODE))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.codigo").value(VALID_CODE));
+    }
+
+    @Test
+    void vendedorCanReadProductsAndAdjustStockButCannotCreateOrDelete() throws Exception {
+        when(productUseCase.listProductsPaged(eq(0), eq(10), isNull(), isNull()))
+                .thenReturn(List.of(sampleProduct()));
+        when(productUseCase.adjustStockAtomic(eq(ProductCode.of(VALID_CODE)), eq(2), eq("INGRESO_PROVEEDOR")))
+                .thenReturn(sampleProduct());
+
+        // Allowed: GET products
+        mvc.perform(get("/api/v1/admin/products")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + vendedorToken()))
+                .andExpect(status().isOk());
+
+        // Allowed: PATCH stock
+        mvc.perform(patch("/api/v1/admin/products/" + VALID_CODE + "/stock")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + vendedorToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"delta\":2,\"motivo\":\"INGRESO_PROVEEDOR\"}"))
+                .andExpect(status().isOk());
+
+        // Forbidden: POST product (create)
+        mvc.perform(post("/api/v1/admin/products")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + vendedorToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(PRODUCT_JSON))
+                .andExpect(status().isForbidden());
+
+        // Forbidden: DELETE product
+        mvc.perform(delete("/api/v1/admin/products/" + VALID_CODE)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + vendedorToken()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void vendedorCanReadAndRegisterCustomersButCannotUpdate() throws Exception {
+        when(customerUseCase.listCustomers()).thenReturn(List.of(sampleCustomer()));
+        when(customerUseCase.registerCustomer(any())).thenReturn(sampleCustomer());
+
+        // Allowed: GET customers
+        mvc.perform(get("/api/v1/admin/customers")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + vendedorToken()))
+                .andExpect(status().isOk());
+
+        // Allowed: POST customers
+        mvc.perform(post("/api/v1/admin/customers")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + vendedorToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(CUSTOMER_JSON))
+                .andExpect(status().isCreated());
+
+        // Forbidden: PUT customer
+        mvc.perform(put("/api/v1/admin/customers/7")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + vendedorToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(CUSTOMER_JSON))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void vendedorCannotAccessDashboardMetricsOrPriceAdjustments() throws Exception {
+        mvc.perform(get("/api/v1/admin/dashboard/metrics")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + vendedorToken()))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(post("/api/v1/admin/operations/price-adjustment")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + vendedorToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"porcentaje\":10.0}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void clienteCannotAccessAdminEndpoints() throws Exception {
+        mvc.perform(get("/api/v1/admin/products")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + clienteToken()))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(get("/api/v1/admin/customers")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + clienteToken()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void clienteCanRegisterSaleOnStoreEndpoint() throws Exception {
+        when(oracleIntegrationUseCase.registerSale(any(SaleCommand.class)))
+                .thenReturn(new SaleResult("BOL-9001", "7", ProductCode.of(VALID_CODE), 1, 899_990L, 0L, 899_990L, Instant.now()));
+
+        String saleJson = "{\"customerId\":\"7\",\"productCode\":\"G-FND-STRAT-01\",\"quantity\":1,\"unitPriceClp\":899990}";
+
+        mvc.perform(post("/api/v1/store/sales")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + clienteToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(saleJson))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.saleReference").value("BOL-9001"))
+                .andExpect(jsonPath("$.netTotalClp").value(899_990L));
+    }
+
+    // ============================================================ T13: Dashboard Metrics Export
+
+    @Test
+    void exportMetricsUnauthenticatedReturns401() throws Exception {
+        mvc.perform(get("/api/v1/admin/dashboard/export"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
+    @Test
+    void exportMetricsForbiddenForVendedorAndCliente() throws Exception {
+        mvc.perform(get("/api/v1/admin/dashboard/export")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + vendedorToken()))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(get("/api/v1/admin/dashboard/export")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + clienteToken()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void exportMetricsDefaultCsvReturns200WithContentHeadersAndBody() throws Exception {
+        when(dashboardUseCase.getInventoryMetrics()).thenReturn(
+                DashboardMetrics.fromCategories(List.of(new CategoryMetric("Cuerdas", 10, 5_000_000L, 500_000.0))));
+
+        mvc.perform(get("/api/v1/admin/dashboard/export")
+                        .header(HttpHeaders.AUTHORIZATION, bearer()))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8"))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"sonidovivo-metrics.csv\""))
+                .andExpect(result -> {
+                    byte[] content = result.getResponse().getContentAsByteArray();
+                    assertThat(content).startsWith((byte) 0xEF, (byte) 0xBB, (byte) 0xBF);
+                    String str = result.getResponse().getContentAsString(StandardCharsets.UTF_8);
+                    assertThat(str).contains("category,total_units,total_value_clp,average_price_clp");
+                    assertThat(str).contains("Cuerdas,10,5000000,500000.0");
+                });
+    }
+
+    @Test
+    void exportMetricsPdfReturns200WithContentHeadersAndBinary() throws Exception {
+        when(dashboardUseCase.getInventoryMetrics()).thenReturn(
+                DashboardMetrics.fromCategories(List.of(new CategoryMetric("Cuerdas", 10, 5_000_000L, 500_000.0))));
+
+        mvc.perform(get("/api/v1/admin/dashboard/export")
+                        .header(HttpHeaders.AUTHORIZATION, bearer())
+                        .param("format", "pdf"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PDF_VALUE))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"sonidovivo-metrics.pdf\""))
+                .andExpect(result -> {
+                    byte[] content = result.getResponse().getContentAsByteArray();
+                    String str = new String(content, StandardCharsets.US_ASCII);
+                    assertThat(str).startsWith("%PDF-1.4");
+                    assertThat(str.trim()).endsWith("%%EOF");
+                    assertThat(str).contains("Sonido Vivo - Inventory & Sales Metrics Report");
+                });
+    }
+
+    @Test
+    void exportMetricsJsonReturns200WithContentHeadersAndDto() throws Exception {
+        when(dashboardUseCase.getInventoryMetrics()).thenReturn(
+                DashboardMetrics.fromCategories(List.of(new CategoryMetric("Cuerdas", 10, 5_000_000L, 500_000.0))));
+
+        mvc.perform(get("/api/v1/admin/dashboard/export")
+                        .header(HttpHeaders.AUTHORIZATION, bearer())
+                        .param("format", "json"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"sonidovivo-metrics.json\""))
+                .andExpect(jsonPath("$.format").value("json"))
+                .andExpect(jsonPath("$.generatedAt").isNotEmpty())
+                .andExpect(jsonPath("$.kpis.capitalTotalEnBodega").value(5_000_000))
+                .andExpect(jsonPath("$.desglosePorCategoria[0].categoria").value("Cuerdas"));
+    }
+
+    @Test
+    void exportMetricsUnsupportedFormatReturns400() throws Exception {
+        mvc.perform(get("/api/v1/admin/dashboard/export")
+                        .header(HttpHeaders.AUTHORIZATION, bearer())
+                        .param("format", "xml"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("Unsupported export format: xml. Supported formats: csv, pdf, json"));
     }
 }

@@ -158,7 +158,7 @@ targetDb.productos.createIndex(
 );
 
 // 3. Seed initial products if collection is empty
-const count = targetDb.productos.countDocuments();
+const count = targetDb.productos.countDocuments({});
 if (count === 0) {
   print('[MongoDB Init] Seeding baseline inventory...');
   targetDb.productos.insertMany([

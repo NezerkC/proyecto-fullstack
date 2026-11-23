@@ -1,0 +1,60 @@
+# Proxmox CT100 Docker Swarm Deployment (Dokploy Architecture)
+# Deploy via: docker stack deploy -c docker-compose.swarm.yml sonidovivo
+services:
+  sonidovivo-backend:
+    image: ${BACKEND_IMAGE:-sonidovivo-backend:latest}
+    ports:
+      - target: 8080
+        published: ${BACKEND_HOST_PORT:-8085}
+        protocol: tcp
+        mode: host
+    environment:
+      SERVER_PORT: 8080
+      JAVA_OPTS: ${JAVA_OPTS:--XX:+UseContainerSupport -Xmx320m -Xms128m}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-CHANGE_ME}
+      VENDEDOR_USERNAME: ${VENDEDOR_USERNAME:-vendedor}
+      VENDEDOR_PASSWORD: ${VENDEDOR_PASSWORD:-CHANGE_ME}
+      CLIENTE_USERNAME: ${CLIENTE_USERNAME:-usuario}
+      CLIENTE_PASSWORD: ${CLIENTE_PASSWORD:-CHANGE_ME}
+      MONGO_URI: ${MONGO_URI:-mongodb://admin:CHANGE_ME@192.168.3.150:27017/sonido_vivo_nosql?authSource=admin}
+      ORACLE_URL: ${ORACLE_URL:-jdbc:oracle:thin:@192.168.3.150:1521/FREEPDB1}
+      ORACLE_USER: ${ORACLE_USER:-SONIDO_VIVO}
+      ORACLE_PASS: ${ORACLE_PASS:-CHANGE_ME}
+      HIKARI_MAX_POOL_SIZE: ${HIKARI_MAX_POOL_SIZE:-5}
+      HIKARI_MIN_IDLE: ${HIKARI_MIN_IDLE:-1}
+      HIKARI_CONNECTION_TIMEOUT: ${HIKARI_CONNECTION_TIMEOUT:-30000}
+      HIKARI_VALIDATION_TIMEOUT: ${HIKARI_VALIDATION_TIMEOUT:-5000}
+      HIKARI_INIT_FAIL_TIMEOUT: ${HIKARI_INIT_FAIL_TIMEOUT:-90000}
+      JWT_SECRET: ${JWT_SECRET:-CHANGE_ME_MIN_32_BYTES_JWT_SECRET_KEY}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://192.168.3.150:5173,http://192.168.3.150,http://localhost:5173}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 120s
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: stop-first
+    networks:
+      - dokploy-network
+
+networks:
+  dokploy-network:
+    external: true

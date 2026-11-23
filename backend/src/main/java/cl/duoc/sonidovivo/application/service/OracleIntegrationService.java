@@ -79,9 +79,13 @@ public class OracleIntegrationService implements OracleIntegrationUseCase {
             return oracleSalesPort.registerSale(command);
         } catch (RuntimeException ex) {
             // Compensate MongoDB inventory if Oracle PL/SQL sale registration fails
-            productRepositoryPort.adjustStockAtomic(command.productCode(), command.quantity());
-            if (product.getStatus() != previousStatus) {
-                productRepositoryPort.updateStatus(command.productCode(), previousStatus);
+            try {
+                productRepositoryPort.adjustStockAtomic(command.productCode(), command.quantity());
+                if (product.getStatus() != previousStatus) {
+                    productRepositoryPort.updateStatus(command.productCode(), previousStatus);
+                }
+            } catch (RuntimeException compensationEx) {
+                ex.addSuppressed(compensationEx);
             }
             throw ex;
         }
