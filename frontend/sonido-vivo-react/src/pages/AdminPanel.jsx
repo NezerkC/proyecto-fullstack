@@ -212,6 +212,10 @@ function AdminPanel() {
 
   const handleAjustarStock = async (e) => {
     e.preventDefault()
+    if (!Number.isInteger(stockAdjustment.delta) || stockAdjustment.delta === 0) {
+      setErrorMsg('La variación de stock debe ser un entero distinto de 0.')
+      return
+    }
     setLoading(true)
     setErrorMsg('')
     setSuccessMsg('')
@@ -730,7 +734,8 @@ function AdminPanel() {
                                 })
                                 setShowStockModal(true)
                               }}
-                              title="Ajustar stock"
+                              title={prod.estado === 'DESCONTINUADO' ? 'Producto descontinuado: no admite ajustes' : 'Ajustar stock'}
+                              disabled={prod.estado === 'DESCONTINUADO'}
                             >
                               ⚡
                             </button>
@@ -738,7 +743,8 @@ function AdminPanel() {
                               type="button"
                               className="btn btn-secondary btn-sm py-1 px-2 text-danger"
                               onClick={() => handleDescontinuar(prod.codigo)}
-                              title="Descontinuar producto"
+                              title={prod.estado === 'DESCONTINUADO' ? 'Ya está descontinuado' : 'Descontinuar producto'}
+                              disabled={prod.estado === 'DESCONTINUADO'}
                             >
                               🗑️
                             </button>

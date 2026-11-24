@@ -21,7 +21,9 @@ export async function apiClient(endpoint, options = {}) {
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}))
-    throw new Error(errorBody.message || `Error HTTP: ${response.status}`)
+    const campos = errorBody.fieldErrors ? Object.entries(errorBody.fieldErrors) : []
+    const detalle = campos.length ? ` (${campos.map(([k, v]) => `${k}: ${v}`).join(', ')})` : ''
+    throw new Error((errorBody.message || `Error HTTP: ${response.status}`) + detalle)
   }
 
   if (response.status === 204) return null
