@@ -74,7 +74,9 @@ services:
       oracle-db:
         condition: service_healthy
     networks:
-      - sonidovivo-net
+      sonidovivo-net:
+        aliases:
+          - sonidovivo-backend
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
       interval: 15s

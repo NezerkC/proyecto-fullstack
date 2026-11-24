@@ -1,16 +1,41 @@
+import { useEffect, useState } from 'react'
 import { Col, Row } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
 import ProductCard from '../components/ProductCard'
+import { useCart } from '../context/CartContext'
 import {
   OBJETOS_CREADOS_POR_PROGRAMADOR,
   obtenerCatalogoActivo,
 } from '../data/productos'
+import { obtenerCatalogoPublico } from '../services/api'
 
 const CODIGOS_DESTACADOS = ['GA001', 'GE001', 'BA001', 'BT001', 'TC001', 'MI001']
 
-function Home({ onAddToCart }) {
-  const catalogo = obtenerCatalogoActivo()
-  const filtrados = catalogo.filter((p) => CODIGOS_DESTACADOS.includes(p.codigo))
+function Home() {
+  const [catalogo, setCatalogo] = useState(() => obtenerCatalogoActivo())
+  const { addToCart } = useCart()
+
+  useEffect(() => {
+    let montado = true
+    obtenerCatalogoPublico()
+      .then((res) => {
+        if (montado && res?.items && res.items.length > 0) {
+          setCatalogo(res.items)
+        }
+      })
+      .catch((err) => {
+        console.warn('Error al hidratar catálogo en Home:', err)
+      })
+    return () => {
+      montado = false
+    }
+  }, [])
+
+  const filtrados = catalogo.filter((p) => {
+    const code = p.codigo || ''
+    const legacy = p.codigoLegacy || p.especificaciones?.codigo_legacy || ''
+    return CODIGOS_DESTACADOS.includes(code) || CODIGOS_DESTACADOS.includes(legacy)
+  })
   const destacados = filtrados.length > 0 ? filtrados : catalogo.slice(0, 6)
 
   return (
@@ -79,56 +104,45 @@ function Home({ onAddToCart }) {
         className="benefits-section"
         aria-label="Ventajas de comprar en Sonido Vivo"
       >
-        <Row className="g-4">
-          <Col md={4}>
-            <article className="benefit-card h-100">
-              <span className="benefit-indicator">01</span>
-              <h3>Despacho a Todo Chile</h3>
-              <p>
-                Envíos rápidos y asegurados a todo Chile con atención personalizada.
-              </p>
-            </article>
-          </Col>
-          <Col md={4}>
-            <article className="benefit-card h-100">
-              <span className="benefit-indicator">02</span>
-              <h3>Garantía y Servicio Oficial</h3>
-              <p>
-                Todos nuestros instrumentos cuentan con garantía técnica y servicio de
-                calibración profesional.
-              </p>
-            </article>
-          </Col>
-          <Col md={4}>
-            <article className="benefit-card h-100">
-              <span className="benefit-indicator">03</span>
-              <h3>Asesoría por Músicos</h3>
-              <p>
-                Nuestro equipo está integrado por músicos experimentados que te
-                orientarán según tu estilo.
-              </p>
-            </article>
-          </Col>
-        </Row>
+        <div className="benefits-grid">
+          <article className="benefit-card">
+            <span className="benefit-indicator">01</span>
+            <h3>Despacho a Todo Chile</h3>
+            <p>Envíos rápidos y asegurados a todo Chile con atención personalizada.</p>
+          </article>
+          <article className="benefit-card">
+            <span className="benefit-indicator">02</span>
+            <h3>Garantía y Servicio Oficial</h3>
+            <p>
+              Todos nuestros instrumentos cuentan con garantía técnica y servicio de calibración profesional.
+            </p>
+          </article>
+          <article className="benefit-card">
+            <span className="benefit-indicator">03</span>
+            <h3>Asesoría por Músicos</h3>
+            <p>
+              Nuestro equipo está integrado por músicos experimentados que te orientarán según tu estilo.
+            </p>
+          </article>
+        </div>
       </section>
 
-      <section className="featured-section" aria-labelledby="featured-title">
-        <header className="section-header d-flex justify-content-between align-items-end flex-wrap">
-          <div>
-            <h2 id="featured-title">Instrumentos Destacados</h2>
-            <p>
-              Una selección de los favoritos de nuestros clientes en stock inmediato.
-            </p>
-          </div>
-          <Link to="/productos" className="btn btn-secondary btn-sm">
-            Ver Todo el Catálogo ({catalogo.length}) &rarr;
-          </Link>
+      <section className="featured-section">
+        <header className="section-header">
+          <h2>Instrumentos Destacados</h2>
+          <p>
+            Selección curada por nuestros especialistas de tienda. Probados,
+            calibrados y listos para tocar.
+          </p>
         </header>
 
-        <Row className="g-4">
+        <Row xs={1} sm={2} md={3} className="g-4 mb-4">
           {destacados.map((producto) => (
-            <Col key={producto.codigo} sm={6} lg={4}>
-              <ProductCard producto={producto} onAddToCart={onAddToCart} />
+            <Col key={producto.codigo}>
+              <ProductCard
+                producto={producto}
+                onAddToCart={(prod) => addToCart(prod, 1)}
+              />
             </Col>
           ))}
         </Row>
@@ -197,8 +211,8 @@ function Home({ onAddToCart }) {
           precios especiales en accesorios y cuerdas durante todo el semestre académico.
         </p>
         <div>
-          <Link to="/registro" className="btn btn-primary">
-            Registrar mi Cuenta
+          <Link to="/login" className="btn btn-primary">
+            Ingresar a mi Cuenta
           </Link>
         </div>
       </section>

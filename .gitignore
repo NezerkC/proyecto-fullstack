@@ -12,3 +12,9 @@ coverage/
 !.env.*.example
 .DS_Store
 Thumbs.db
+*.tar.gz
+test-results/
+playwright-report/
+.playwright-mcp/
+
+
