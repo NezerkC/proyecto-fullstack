@@ -7,11 +7,11 @@ import { formatearPrecioCLP } from '../data/productos'
 import { registrarCompraCliente } from '../services/api'
 
 function Checkout() {
-  const { cartItems, totalAmount, totalItems, clearCart } = useCart()
+  const { cartItems, totalAmount, totalItems, removeFromCart } = useCart()
   const { isAuthenticated, usuario } = useAuth()
   const navigate = useNavigate()
 
-  const [customerId, setCustomerId] = useState('1')
+  const [customerId, setCustomerId] = useState('')
   const [comprobante, setComprobante] = useState(null)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -49,39 +49,63 @@ function Checkout() {
     )
   }
 
+  const CODE_REGEX = /^[A-Z]{1,4}-[A-Z0-9]{2,5}-[A-Z0-9]{2,10}-[0-9]{2}$/
+
+  const validarCarrito = () => {
+    if (!customerId.trim()) return 'Ingresa tu ID de cliente.'
+    for (const it of cartItems) {
+      if (!CODE_REGEX.test(it.codigo || '')) return `Código inválido en "${it.nombre}" (${it.codigo}). Quítalo del carro.`
+      if (!Number.isInteger(Number(it.quantity)) || Number(it.quantity) < 1) return `Cantidad inválida en "${it.nombre}".`
+      if (!(Number(it.precio) >= 1000)) return `Precio inválido en "${it.nombre}".`
+    }
+    return ''
+  }
+
   const handleProcesarCompra = async (e) => {
     e.preventDefault()
-    if (cartItems.length === 0) return
+    if (cartItems.length === 0 || loading) return
+
+    const invalido = validarCarrito()
+    if (invalido) {
+      setErrorMsg(invalido)
+      return
+    }
 
     setLoading(true)
     setErrorMsg('')
-    try {
-      // Registrar venta en Spring Boot /store/sales para el primer item o procesar en lote
-      const primerItem = cartItems[0]
-      const payload = {
-        customerId: customerId.trim() || '1',
-        productCode: primerItem.codigo,
-        quantity: primerItem.quantity,
-        unitPriceClp: primerItem.precio,
+    const aprobados = []
+    const fallidos = []
+    // Una venta por producto; cada ítem exitoso sale del carro, los fallidos quedan para reintentar.
+    for (const item of cartItems) {
+      try {
+        const res = await registrarCompraCliente({
+          customerId: customerId.trim(),
+          productCode: item.codigo,
+          quantity: item.quantity,
+          unitPriceClp: item.precio,
+        })
+        aprobados.push({ item, res })
+        removeFromCart(item.codigo)
+      } catch (err) {
+        fallidos.push(`${item.nombre}: ${err.message || 'error al procesar'}`)
       }
-
-      const res = await registrarCompraCliente(payload)
-      setComprobante({
-        saleReference: res.saleReference || `SALE-${Date.now()}`,
-        customerId: res.customerId || customerId,
-        productCode: res.productCode || primerItem.codigo,
-        quantity: res.quantity || primerItem.quantity,
-        netTotalClp: res.netTotalClp || totalAmount,
-        discountClp: res.discountClp || 0,
-        registeredAt: res.registeredAt || new Date().toISOString(),
-        items: [...cartItems],
-      })
-      clearCart()
-    } catch (err) {
-      setErrorMsg(err.message || 'Error al procesar la venta en Oracle')
-    } finally {
-      setLoading(false)
     }
+
+    if (aprobados.length > 0) {
+      setComprobante({
+        saleReference: aprobados.map(({ res }) => res.saleReference).filter(Boolean).join(', ') || `SALE-${Date.now()}`,
+        customerId: customerId.trim(),
+        netTotalClp: aprobados.reduce((s, { item, res }) => s + (res.netTotalClp ?? item.precio * item.quantity), 0),
+        discountClp: aprobados.reduce((s, { res }) => s + (res.discountClp || 0), 0),
+        registeredAt: aprobados[0].res.registeredAt || new Date().toISOString(),
+        items: aprobados.map(({ item }) => item),
+        pendientes: fallidos,
+      })
+    }
+    if (fallidos.length > 0) {
+      setErrorMsg(`No se pudo procesar: ${fallidos.join(' | ')}`)
+    }
+    setLoading(false)
   }
 
   if (comprobante) {
@@ -133,6 +157,11 @@ function Checkout() {
                   </Row>
                 </div>
 
+                {comprobante.pendientes?.length > 0 && (
+                  <Alert variant="warning" className="small">
+                    Algunos productos no se procesaron y siguen en tu carro: {comprobante.pendientes.join(' | ')}
+                  </Alert>
+                )}
                 <h6 className="fw-bold mb-3">Detalle del Comprobante</h6>
                 <Table responsive size="sm" className="mb-4">
                   <thead>
@@ -229,7 +258,7 @@ function Checkout() {
                         type="text"
                         value={customerId}
                         onChange={(e) => setCustomerId(e.target.value)}
-                        placeholder="Ej: 1"
+                        placeholder="Ej: 1" inputMode="numeric"
                         required
                       />
                       <Form.Text className="text-muted">
