@@ -43,9 +43,10 @@ function VendedorPanel() {
 
   // Modal Ajuste Stock
   const [showStockModal, setShowStockModal] = useState(false)
+  const [stockModalError, setStockModalError] = useState('')
   const [stockAdjustment, setStockAdjustment] = useState({
     codigo: '',
-    delta: 1,
+    delta: '1',
     motivo: 'INGRESO_PROVEEDOR',
   })
 
@@ -81,8 +82,9 @@ function VendedorPanel() {
 
       if (prodsData.status === 'fulfilled' && prodsData.value) {
         setProductos(prodsData.value)
-        if (prodsData.value.length > 0 && !ventaPOS.productCode) {
-          const primero = prodsData.value[0]
+        const vendibles = prodsData.value.filter((p) => p.estado !== 'DESCONTINUADO')
+        if (vendibles.length > 0 && !ventaPOS.productCode) {
+          const primero = vendibles[0]
           setVentaPOS((prev) => ({
             ...prev,
             productCode: primero.codigo,
@@ -155,16 +157,24 @@ function VendedorPanel() {
 
   const handleAjustarStock = async (e) => {
     e.preventDefault()
+    const rawDelta = String(stockAdjustment.delta ?? '').trim()
+    const parsedDelta = /^-?\d+$/.test(rawDelta) ? Number.parseInt(rawDelta, 10) : Number.NaN
+    if (!Number.isInteger(parsedDelta) || parsedDelta === 0) {
+      setStockModalError('La variación de stock debe ser un entero distinto de 0.')
+      return
+    }
     setLoading(true)
     setErrorMsg('')
+    setStockModalError('')
     setSuccessMsg('')
     try {
-      await ajustarStock(stockAdjustment.codigo, stockAdjustment.delta, stockAdjustment.motivo)
-      setSuccessMsg(`Stock actualizado para ${stockAdjustment.codigo}`)
+      await ajustarStock(stockAdjustment.codigo, parsedDelta, stockAdjustment.motivo)
+      const deltaLabel = parsedDelta > 0 ? `+${parsedDelta}` : String(parsedDelta)
+      setSuccessMsg(`Stock actualizado para ${stockAdjustment.codigo} (${deltaLabel})`)
       setShowStockModal(false)
       cargarDatos()
     } catch (err) {
-      setErrorMsg(`Error en ajuste de stock: ${err.message}`)
+      setStockModalError(`Error en ajuste de stock: ${err.message}`)
     } finally {
       setLoading(false)
     }
@@ -283,11 +293,13 @@ function VendedorPanel() {
                           onChange={handleSeleccionarProductoPOS}
                           required
                         >
-                          {productos.map((p) => (
-                            <option key={p.codigo} value={p.codigo}>
-                              [{p.codigo}] {p.nombre} (Stock: {p.stock})
-                            </option>
-                          ))}
+                          {productos
+                            .filter((p) => p.estado !== 'DESCONTINUADO')
+                            .map((p) => (
+                              <option key={p.codigo} value={p.codigo}>
+                                [{p.codigo}] {p.nombre} (Stock: {p.stock})
+                              </option>
+                            ))}
                         </Form.Select>
                       </Form.Group>
                     </Col>
@@ -435,6 +447,7 @@ function VendedorPanel() {
                   <th>Categoría</th>
                   <th className="text-end">Precio</th>
                   <th className="text-center">Stock</th>
+                  <th className="text-center">Estado</th>
                   <th className="text-center">Acciones</th>
                 </tr>
               </thead>
@@ -457,13 +470,33 @@ function VendedorPanel() {
                       </Badge>
                     </td>
                     <td className="text-center">
+                      <Badge
+                        bg={
+                          prod.estado === 'DESCONTINUADO'
+                            ? 'danger'
+                            : prod.estado === 'AGOTADO'
+                              ? 'warning'
+                              : 'success'
+                        }
+                      >
+                        {prod.estado || 'ACTIVO'}
+                      </Badge>
+                    </td>
+                    <td className="text-center">
                       <Button
                         variant="outline-primary"
                         size="sm"
+                        disabled={prod.estado === 'DESCONTINUADO'}
+                        title={
+                          prod.estado === 'DESCONTINUADO'
+                            ? 'Producto descontinuado: no admite ajustes de stock'
+                            : 'Ajustar stock'
+                        }
                         onClick={() => {
+                          setStockModalError('')
                           setStockAdjustment({
                             codigo: prod.codigo,
-                            delta: 1,
+                            delta: '1',
                             motivo: 'INGRESO_PROVEEDOR',
                           })
                           setShowStockModal(true)
@@ -530,23 +563,37 @@ function VendedorPanel() {
       )}
 
       {/* MODAL AJUSTE DE STOCK */}
-      <Modal show={showStockModal} onHide={() => setShowStockModal(false)}>
+      <Modal
+        show={showStockModal}
+        onHide={() => {
+          setShowStockModal(false)
+          setStockModalError('')
+        }}
+      >
         <Form onSubmit={handleAjustarStock}>
           <Modal.Header closeButton>
             <Modal.Title className="h5">Ajustar Stock: {stockAdjustment.codigo}</Modal.Title>
           </Modal.Header>
           <Modal.Body>
+            {stockModalError && (
+              <Alert variant="danger" className="py-2 small">
+                {stockModalError}
+              </Alert>
+            )}
             <Form.Group className="mb-3" controlId="stockDelta">
               <Form.Label>Variación de Unidades (Delta positivo o negativo)</Form.Label>
               <Form.Control
                 type="number"
+                step="1"
+                placeholder="Ej: 10 o -2"
                 value={stockAdjustment.delta}
-                onChange={(e) =>
+                onChange={(e) => {
+                  setStockModalError('')
                   setStockAdjustment({
                     ...stockAdjustment,
-                    delta: parseInt(e.target.value) || 0,
+                    delta: e.target.value,
                   })
-                }
+                }}
                 required
               />
               <Form.Text className="text-muted">
@@ -574,7 +621,13 @@ function VendedorPanel() {
             </Form.Group>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowStockModal(false)}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowStockModal(false)
+                setStockModalError('')
+              }}
+            >
               Cancelar
             </Button>
             <Button variant="primary" type="submit" disabled={loading}>

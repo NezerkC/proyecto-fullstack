@@ -213,6 +213,17 @@ export async function ajustarStock(codigo, delta, motivo = 'INGRESO_PROVEEDOR') 
 }
 
 /**
+ * Cambiar estado de ciclo de vida del producto (PATCH /admin/products/{codigo}/status)
+ * estado: 'ACTIVO' | 'AGOTADO' | 'DESCONTINUADO'
+ */
+export async function cambiarEstadoProducto(codigo, estado) {
+  return apiClient(`/admin/products/${encodeURIComponent(codigo)}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ estado }),
+  })
+}
+
+/**
  * Descontinuar producto (DELETE /admin/products/{codigo})
  */
 export async function descontinuarProducto(codigo) {

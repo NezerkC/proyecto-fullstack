@@ -14,6 +14,7 @@ import {
   actualizarCliente,
   actualizarProducto,
   ajustarStock,
+  cambiarEstadoProducto,
   crearCliente,
   crearProducto,
   descontinuarProducto,
@@ -66,9 +67,10 @@ function AdminPanel() {
 
   // Modal Ajuste de Stock
   const [showStockModal, setShowStockModal] = useState(false)
+  const [stockModalError, setStockModalError] = useState('')
   const [stockAdjustment, setStockAdjustment] = useState({
     codigo: '',
-    delta: 1,
+    delta: '1',
     motivo: 'INGRESO_PROVEEDOR',
   })
 
@@ -212,20 +214,40 @@ function AdminPanel() {
 
   const handleAjustarStock = async (e) => {
     e.preventDefault()
-    if (!Number.isInteger(stockAdjustment.delta) || stockAdjustment.delta === 0) {
-      setErrorMsg('La variación de stock debe ser un entero distinto de 0.')
+    const rawDelta = String(stockAdjustment.delta ?? '').trim()
+    const parsedDelta = /^-?\d+$/.test(rawDelta) ? Number.parseInt(rawDelta, 10) : Number.NaN
+    if (!Number.isInteger(parsedDelta) || parsedDelta === 0) {
+      setStockModalError('La variación de stock debe ser un entero distinto de 0.')
       return
     }
     setLoading(true)
     setErrorMsg('')
+    setStockModalError('')
     setSuccessMsg('')
     try {
-      await ajustarStock(stockAdjustment.codigo, stockAdjustment.delta, stockAdjustment.motivo)
-      setSuccessMsg(`Stock de ${stockAdjustment.codigo} ajustado (${stockAdjustment.delta}).`)
+      await ajustarStock(stockAdjustment.codigo, parsedDelta, stockAdjustment.motivo)
+      const deltaLabel = parsedDelta > 0 ? `+${parsedDelta}` : String(parsedDelta)
+      setSuccessMsg(`Stock de ${stockAdjustment.codigo} ajustado (${deltaLabel}).`)
       setShowStockModal(false)
       cargarDatosAdmin()
     } catch (err) {
-      setErrorMsg(`Error al ajustar stock: ${err.message}`)
+      setStockModalError(`Error al ajustar stock: ${err.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleReactivar = async (prod) => {
+    const nuevoEstado = (prod.stock || 0) > 0 ? 'ACTIVO' : 'AGOTADO'
+    setLoading(true)
+    setErrorMsg('')
+    setSuccessMsg('')
+    try {
+      await cambiarEstadoProducto(prod.codigo, nuevoEstado)
+      setSuccessMsg(`Producto ${prod.codigo} reactivado (${nuevoEstado}).`)
+      cargarDatosAdmin()
+    } catch (err) {
+      setErrorMsg(`Error al reactivar: ${err.message}`)
     } finally {
       setLoading(false)
     }
@@ -338,7 +360,9 @@ function AdminPanel() {
   const categoriasActivasCount =
     metrics?.kpis?.categoriasActivas ??
     new Set(productos.map((p) => p.categoria)).size
-  const productosCriticos = productos.filter((p) => (p.stock || 0) < 5)
+  const productosCriticos = productos.filter(
+    (p) => p.estado !== 'DESCONTINUADO' && (p.stock || 0) < 5
+  )
 
   return (
     <div className="admin-dashboard-page">
@@ -629,9 +653,10 @@ function AdminPanel() {
                               type="button"
                               className="btn btn-outline btn-sm py-1 px-2"
                               onClick={() => {
+                                setStockModalError('')
                                 setStockAdjustment({
                                   codigo: prod.codigo,
-                                  delta: 5,
+                                  delta: '5',
                                   motivo: 'INGRESO_PROVEEDOR',
                                 })
                                 setShowStockModal(true)
@@ -686,6 +711,7 @@ function AdminPanel() {
                       <th>Categoría</th>
                       <th className="text-end">Precio CLP</th>
                       <th className="text-center">Stock</th>
+                      <th className="text-center">Estado</th>
                       <th className="text-center">Acciones</th>
                     </tr>
                   </thead>
@@ -714,6 +740,19 @@ function AdminPanel() {
                           </span>
                         </td>
                         <td className="text-center">
+                          <span
+                            className={`badge ${
+                              prod.estado === 'DESCONTINUADO'
+                                ? 'badge-danger'
+                                : prod.estado === 'AGOTADO'
+                                  ? 'badge-critical'
+                                  : 'badge-ok'
+                            }`}
+                          >
+                            {prod.estado || 'ACTIVO'}
+                          </span>
+                        </td>
+                        <td className="text-center">
                           <div className="d-flex justify-content-center gap-1">
                             <button
                               type="button"
@@ -727,27 +766,40 @@ function AdminPanel() {
                               type="button"
                               className="btn btn-outline btn-sm py-1 px-2"
                               onClick={() => {
+                                setStockModalError('')
                                 setStockAdjustment({
                                   codigo: prod.codigo,
-                                  delta: 1,
+                                  delta: '1',
                                   motivo: 'INGRESO_PROVEEDOR',
                                 })
                                 setShowStockModal(true)
                               }}
-                              title={prod.estado === 'DESCONTINUADO' ? 'Producto descontinuado: no admite ajustes' : 'Ajustar stock'}
+                              title={prod.estado === 'DESCONTINUADO' ? 'Producto descontinuado: reactívalo antes de ajustar stock' : 'Ajustar stock'}
                               disabled={prod.estado === 'DESCONTINUADO'}
                             >
                               ⚡
                             </button>
-                            <button
-                              type="button"
-                              className="btn btn-secondary btn-sm py-1 px-2 text-danger"
-                              onClick={() => handleDescontinuar(prod.codigo)}
-                              title={prod.estado === 'DESCONTINUADO' ? 'Ya está descontinuado' : 'Descontinuar producto'}
-                              disabled={prod.estado === 'DESCONTINUADO'}
-                            >
-                              🗑️
-                            </button>
+                            {prod.estado === 'DESCONTINUADO' ? (
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm py-1 px-2 text-success"
+                                onClick={() => handleReactivar(prod)}
+                                title="Reactivar producto"
+                                disabled={loading}
+                              >
+                                ♻️
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm py-1 px-2 text-danger"
+                                onClick={() => handleDescontinuar(prod.codigo)}
+                                title="Descontinuar producto"
+                                disabled={loading}
+                              >
+                                🗑️
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1026,7 +1078,13 @@ function AdminPanel() {
       </Modal>
 
       {/* MODAL AJUSTE DE STOCK */}
-      <Modal show={showStockModal} onHide={() => setShowStockModal(false)}>
+      <Modal
+        show={showStockModal}
+        onHide={() => {
+          setShowStockModal(false)
+          setStockModalError('')
+        }}
+      >
         <Form onSubmit={handleAjustarStock}>
           <Modal.Header closeButton>
             <Modal.Title className="h5" style={{ fontFamily: 'var(--font-heading)' }}>
@@ -1034,19 +1092,30 @@ function AdminPanel() {
             </Modal.Title>
           </Modal.Header>
           <Modal.Body>
+            {stockModalError && (
+              <Alert variant="danger" className="py-2 small">
+                {stockModalError}
+              </Alert>
+            )}
             <Form.Group className="mb-3" controlId="admStockDelta">
               <Form.Label className="small fw-semibold">Variación de Stock ({stockAdjustment.codigo})</Form.Label>
               <Form.Control
                 type="number"
+                step="1"
+                placeholder="Ej: 5 o -2"
                 value={stockAdjustment.delta}
-                onChange={(e) =>
+                onChange={(e) => {
+                  setStockModalError('')
                   setStockAdjustment({
                     ...stockAdjustment,
-                    delta: parseInt(e.target.value) || 0,
+                    delta: e.target.value,
                   })
-                }
+                }}
                 required
               />
+              <Form.Text className="text-muted">
+                Entero distinto de 0 (positivo para ingreso, negativo para salida o merma).
+              </Form.Text>
             </Form.Group>
 
             <Form.Group className="mb-3" controlId="admStockMotivo">
@@ -1069,7 +1138,14 @@ function AdminPanel() {
             </Form.Group>
           </Modal.Body>
           <Modal.Footer>
-            <button type="button" className="btn btn-secondary" onClick={() => setShowStockModal(false)}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setShowStockModal(false)
+                setStockModalError('')
+              }}
+            >
               Cancelar
             </button>
             <button type="submit" className="btn btn-primary" disabled={loading}>
