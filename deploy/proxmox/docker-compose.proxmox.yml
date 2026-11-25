@@ -3,7 +3,7 @@
 services:
   sonidovivo-backend:
     build:
-      context: ./backend
+      context: ../../backend
       dockerfile: Dockerfile
     container_name: sonidovivo-backend
     restart: unless-stopped

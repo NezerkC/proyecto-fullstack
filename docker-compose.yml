@@ -6,7 +6,8 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - ./backend/scripts/mongo/init-sonido-vivo.js:/docker-entrypoint-initdb.d/init-sonido-vivo.js:ro
+      - ./backend/scripts/mongo/init-sonido-vivo.js:/docker-entrypoint-initdb.d/01-init-sonido-vivo.js:ro
+      - ./backend/scripts/mongo/seed-50-productos.js:/docker-entrypoint-initdb.d/02-seed-50-productos.js:ro
       - mongo_data:/data/db
     mem_limit: 768m
     networks:
@@ -34,11 +35,11 @@ services:
     networks:
       - sonidovivo-net
     healthcheck:
-      test: ["CMD-SHELL", "healthcheck.sh || exit 1"]
+      test: ["CMD-SHELL", "healthcheck.sh || /opt/oracle/healthcheck.sh || /opt/oracle/checkDBStatus.sh || exit 1"]
       interval: 20s
       timeout: 10s
-      retries: 12
-      start_period: 90s
+      retries: 15
+      start_period: 120s
 
   backend:
     build:
