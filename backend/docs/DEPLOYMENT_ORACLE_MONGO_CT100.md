@@ -35,11 +35,13 @@ services:
     environment:
       - ORACLE_PWD=${ORACLE_PWD:-SonidoVivo2026#Secure}
       - ORACLE_CHARACTERSET=AL32UTF8
+      - NLS_LANG=AMERICAN_AMERICA.AL32UTF8
     ports:
       - "1521:1521"
     volumes:
       - /opt/oracle-hermes/oradata:/opt/oracle/oradata
-      - /opt/oracle-hermes/scripts/oracle:/container-entrypoint-initdb.d
+      # container-registry.oracle.com/database/free ignora /container-entrypoint-initdb.d y ejecuta /opt/oracle/scripts/startup/*.sql en el arranque
+      - /opt/oracle-hermes/scripts/oracle:/opt/oracle/scripts/startup
     deploy:
       resources:
         limits:

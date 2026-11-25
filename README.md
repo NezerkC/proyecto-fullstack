@@ -191,7 +191,7 @@ printjson(db.productos.aggregate([
 
 ### 3. Probar la Integración Completa desde la Web o API
 
-- Ingresar a `http://localhost:5173/login` con `admin` / `admin123` para ver el Dashboard conectado al pipeline `$aggregate` de MongoDB, ajustar stock en tiempo real y gestionar clientes almacenados en Oracle.
+- Ingresar a `http://localhost:5173/login` con `admin` / `admin123` para ver el Dashboard conectado al pipeline `$aggregate` de MongoDB, ajustar stock en tiempo real y gestionar clientes almacenados en Oracle. La interfaz administrativa `/admin` también expone las opciones de exportación de métricas `Exportar CSV / PDF / JSON` (`GET /api/v1/admin/dashboard/export`) y la pestaña de `Liquidaciones Oracle` (`PKG_SONIDO_VIVO.SP_LIQUIDAR_CLIENTES`).
 - Realizar una compra en `http://localhost:5173/checkout` (descuenta stock atómicamente en MongoDB y registra `VENTA` + `DETALLE_VENTA` vía `PKG_SONIDO_VIVO.SP_REGISTRAR_VENTA` en Oracle).
 - Ejecutar liquidación vía Swagger (`http://localhost:8080/swagger-ui.html`) en `POST /api/v1/admin/operations/liquidations`.
 
@@ -211,6 +211,14 @@ printjson(db.productos.aggregate([
   npm run lint
   npm run build
   ```
+- **Frontend E2E (Playwright contra `http://localhost:5173`):**
+  ```bash
+  cd frontend/sonido-vivo-react
+  # Ejecuta la suite de pruebas E2E en Playwright headless:
+  BASE_URL="http://localhost:5173" npm run test:ui
+  # En Windows PowerShell:
+  $env:BASE_URL="http://localhost:5173"; npm run test:ui
+  ```
 
 ---
 
@@ -221,4 +229,4 @@ printjson(db.productos.aggregate([
 - [Integración Backend y Base de Datos](docs/BACKEND_DATABASE_INTEGRATION.md)
 - [Integración Backend y Fullstack](docs/BACKEND_FULLSTACK_INTEGRATION.md)
 - [Detalle de Integración Oracle PL/SQL](backend/docs/ORACLE_PLSQL_INTEGRATION.md)
-- [Despliegue Proxmox / Dokploy](deploy/proxmox/)
+- [Despliegue Proxmox / Dokploy](deploy/proxmox/README.md)
