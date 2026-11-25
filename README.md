@@ -27,7 +27,6 @@ proyecto-fullstack/
 ├── .github/workflows/ci.yml           # Pipeline CI (pruebas Maven + lint/build Frontend)
 ├── contracts/                         # Contratos compartidos (OpenAPI/REST y JSON Schema MongoDB)
 ├── docs/                              # Guías de integración Backend-BD y Backend-Fullstack
-├── deploy/proxmox/                    # Manifiestos alternativos para servidor Proxmox / Dokploy / Swarm
 ├── database/                          # Historial completo e informes de Taller de Base de Datos (EP1, EP2, EP3)
 ├── backend/                           # Código Java 21 / Spring Boot y scripts de inicialización Docker
 │   ├── scripts/oracle/01_pkg_sonido_vivo.sql   # DDL + datos + PKG_SONIDO_VIVO + TRG_AUDITA_VENTA
@@ -229,4 +228,3 @@ printjson(db.productos.aggregate([
 - [Integración Backend y Base de Datos](docs/BACKEND_DATABASE_INTEGRATION.md)
 - [Integración Backend y Fullstack](docs/BACKEND_FULLSTACK_INTEGRATION.md)
 - [Detalle de Integración Oracle PL/SQL](backend/docs/ORACLE_PLSQL_INTEGRATION.md)
-- [Despliegue Proxmox / Dokploy](deploy/proxmox/README.md)
