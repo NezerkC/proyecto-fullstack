@@ -76,7 +76,7 @@ cd proyecto-fullstack
 docker compose up -d --build
 ```
 
-> **Nota sobre el primer arranque:** Oracle Database 23ai Free tarda aproximadamente **1 a 3 minutos** la primera vez en crear la PDB `FREEPDB1` y compilar `01_pkg_sonido_vivo.sql`. El servicio `sonidovivo-backend` esperará automáticamente a que `sonidovivo-oracle` y `sonidovivo-mongodb` reporten estado `healthy`.
+> **Nota sobre el primer arranque:** la imagen oficial de Oracle Database Free (`container-registry.oracle.com/database/free`) descomprime ~4 GB en el primer inicio y luego ejecuta `01_pkg_sonido_vivo.sql` desde `/opt/oracle/scripts/startup`, lo que suele tardar entre **3 y 25+ minutos** en Windows/Docker Desktop según el disco y CPU (en arranques posteriores tarda cerca de 1 a 3 minutos). El servicio `sonidovivo-backend` esperará automáticamente a que `sonidovivo-oracle` y `sonidovivo-mongodb` reporten estado `healthy`.
 
 Para seguir el avance del arranque:
 

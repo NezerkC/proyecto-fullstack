@@ -141,7 +141,7 @@ Los procedimientos registran el error en `LOG_ERRORES` mediante `sp_registrar_lo
 
 ### 6.1 Carga del script
 
-Con `docker compose up -d`, la imagen de Oracle ejecuta `scripts/oracle/*.sql` (montado en `/container-entrypoint-initdb.d`) la primera vez que se crea el volumen `oracle_data`. En CT100, copiar el archivo a `/opt/oracle-hermes/scripts/oracle/` antes de levantar el stack. Para ejecutarlo a mano: `sqlplus / as sysdba @01_pkg_sonido_vivo.sql` dentro del contenedor. Al final imprime `PKG_SONIDO_VIVO y TRG_AUDITA_VENTA compilados sin errores`; si el paquete compila con errores el script falla con ORA-20999.
+Con `docker compose up -d`, la imagen preconstruida de Oracle ejecuta `scripts/oracle/*.sql` (montado en `/opt/oracle/scripts/startup`) tras abrir `FREEPDB1`. En CT100, copiar el archivo a `/opt/oracle-hermes/scripts/oracle/` antes de levantar el stack. Para ejecutarlo a mano: `sqlplus / as sysdba @01_pkg_sonido_vivo.sql` dentro del contenedor. Al final imprime `PKG_SONIDO_VIVO y TRG_AUDITA_VENTA compilados sin errores`; si el paquete compila con errores el script falla con ORA-20999.
 
 ### 6.2 Prueba manual en SQL Developer o DBeaver (como `SONIDO_VIVO`)
 

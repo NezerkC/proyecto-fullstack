@@ -26,19 +26,20 @@ services:
       - "1521:1521"
     environment:
       ORACLE_PWD: ${ORACLE_PASS:-secret}
+      NLS_LANG: AMERICAN_AMERICA.AL32UTF8
     volumes:
-      - ./scripts/oracle:/container-entrypoint-initdb.d:ro
+      - ./scripts/oracle:/opt/oracle/scripts/startup:ro
       - oracle_data:/opt/oracle/oradata
     mem_limit: 3584m
     shm_size: 1g
     networks:
       - sonidovivo-net
     healthcheck:
-      test: ["CMD-SHELL", "healthcheck.sh || exit 1"]
+      test: ["CMD-SHELL", "[ -x /opt/oracle/checkDBStatus.sh ] && /opt/oracle/checkDBStatus.sh || healthcheck.sh || exit 1"]
       interval: 20s
       timeout: 10s
-      retries: 12
-      start_period: 90s
+      retries: 15
+      start_period: 1800s
 
   sonidovivo-backend:
     image: ghcr.io/nezerkc/sonido-vivo-backend:latest
@@ -68,7 +69,7 @@ services:
       HIKARI_INIT_FAIL_TIMEOUT: ${HIKARI_INIT_FAIL_TIMEOUT:-60000}
       JWT_SECRET: ${JWT_SECRET:-SonidoVivoSecretKey2026SuperSecureTokenVal256Bits}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
-    mem_limit: 512m
+    mem_limit: 768m
     depends_on:
       mongodb:
         condition: service_healthy
@@ -80,8 +81,8 @@ services:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health || exit 1"]
       interval: 15s
       timeout: 5s
-      retries: 6
-      start_period: 45s
+      retries: 10
+      start_period: 120s
 
 networks:
   sonidovivo-net:

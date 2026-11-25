@@ -9,11 +9,11 @@
 --          no existen PRODUCTO, CATEGORIA ni TRG_DESCUENTA_STOCK.
 -- Doc    : docs/ORACLE_PLSQL_INTEGRATION.md
 --
--- Ejecucion: la imagen oficial container-registry.oracle.com/database/free corre
--- los .sql de /container-entrypoint-initdb.d como SYSDBA contra el CDB raiz, por
--- eso el script cambia primero al contenedor FREEPDB1. Solo se ejecuta la primera
--- vez que se crea el volumen de datos; tambien se puede volver a correr a mano:
--- las tablas usan IF NOT EXISTS, el resto CREATE OR REPLACE y los datos MERGE.
+-- Ejecucion: la imagen preconstruida container-registry.oracle.com/database/free
+-- corre los .sql de /opt/oracle/scripts/startup como SYSDBA contra el CDB raiz
+-- en cada arranque (ignora /container-entrypoint-initdb.d). Por eso el script
+-- cambia primero al contenedor FREEPDB1 y es completamente idempotente:
+-- las tablas/secuencias usan IF NOT EXISTS, el resto CREATE OR REPLACE y los datos MERGE.
 -- =============================================================================
 
 WHENEVER SQLERROR EXIT SQL.SQLCODE

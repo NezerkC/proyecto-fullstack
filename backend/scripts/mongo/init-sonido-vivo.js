@@ -154,7 +154,7 @@ targetDb.productos.createIndex(
 
 targetDb.productos.createIndex(
   { 'especificaciones.tipo': 1 },
-  { name: 'idx_espec_tipo' }
+  { name: 'idx_espec_tipo', sparse: true }
 );
 
 // 3. Seed initial products if collection is empty
