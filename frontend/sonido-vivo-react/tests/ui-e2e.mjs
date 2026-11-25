@@ -7,7 +7,7 @@
 
 import { chromium } from 'playwright-core'
 
-const BASE_URL = process.env.BASE_URL || 'https://sonidovivo.nzrkc.com'
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173'
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 

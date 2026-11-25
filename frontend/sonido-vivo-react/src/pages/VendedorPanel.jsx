@@ -52,6 +52,7 @@ function VendedorPanel() {
 
   // Modal Nuevo Cliente Oracle
   const [showClienteModal, setShowClienteModal] = useState(false)
+  const [clienteModalError, setClienteModalError] = useState('')
   const [nuevoCliente, setNuevoCliente] = useState({
     rut: '',
     firstName: '',
@@ -66,7 +67,7 @@ function VendedorPanel() {
   const [ventaPOS, setVentaPOS] = useState({
     customerId: '1',
     productCode: '',
-    quantity: 1,
+    quantity: '1',
     unitPriceClp: 0,
   })
   const [ticketVenta, setTicketVenta] = useState(null)
@@ -82,19 +83,33 @@ function VendedorPanel() {
 
       if (prodsData.status === 'fulfilled' && prodsData.value) {
         setProductos(prodsData.value)
-        const vendibles = prodsData.value.filter((p) => p.estado !== 'DESCONTINUADO')
-        if (vendibles.length > 0 && !ventaPOS.productCode) {
-          const primero = vendibles[0]
-          setVentaPOS((prev) => ({
-            ...prev,
-            productCode: primero.codigo,
-            unitPriceClp: primero.precio,
-          }))
+        const vendibles = prodsData.value.filter((p) => p.estado === 'ACTIVO' && (p.stock || 0) > 0)
+        if (vendibles.length > 0) {
+          setVentaPOS((prev) => {
+            const current = vendibles.find((p) => p.codigo === prev.productCode)
+            if (current) {
+              return { ...prev, unitPriceClp: current.precio }
+            }
+            return {
+              ...prev,
+              productCode: vendibles[0].codigo,
+              unitPriceClp: vendibles[0].precio,
+            }
+          })
         }
       }
 
       if (clientesData.status === 'fulfilled' && clientesData.value) {
-        setClientes(clientesData.value)
+        const loadedClientes = clientesData.value
+        setClientes(loadedClientes)
+        if (loadedClientes.length > 0) {
+          setVentaPOS((prev) => {
+            const exists = loadedClientes.some((c) => String(c.id) === String(prev.customerId))
+            return exists ? prev : { ...prev, customerId: String(loadedClientes[0].id) }
+          })
+        } else {
+          setVentaPOS((prev) => ({ ...prev, customerId: '1' }))
+        }
       }
     } catch (err) {
       setErrorMsg(err.message || 'Error cargando datos')
@@ -102,6 +117,38 @@ function VendedorPanel() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    const vendibles = productos.filter((p) => p.estado === 'ACTIVO' && (p.stock || 0) > 0)
+    if (vendibles.length > 0) {
+      setVentaPOS((prev) => {
+        const current = vendibles.find((p) => p.codigo === prev.productCode)
+        if (current) {
+          return current.precio !== prev.unitPriceClp
+            ? { ...prev, unitPriceClp: current.precio }
+            : prev
+        }
+        return {
+          ...prev,
+          productCode: vendibles[0].codigo,
+          unitPriceClp: vendibles[0].precio,
+        }
+      })
+    } else {
+      setVentaPOS((prev) => ({ ...prev, productCode: '', unitPriceClp: 0 }))
+    }
+  }, [productos])
+
+  useEffect(() => {
+    if (clientes.length > 0) {
+      setVentaPOS((prev) => {
+        const exists = clientes.some((c) => String(c.id) === String(prev.customerId))
+        return exists ? prev : { ...prev, customerId: String(clientes[0].id) }
+      })
+    } else {
+      setVentaPOS((prev) => ({ ...prev, customerId: '1' }))
+    }
+  }, [clientes])
 
   useEffect(() => {
     if (isAuthenticated && (isVendedor || isAdmin)) {
@@ -140,11 +187,33 @@ function VendedorPanel() {
 
   const handleEmitirVentaPOS = async (e) => {
     e.preventDefault()
-    setLoading(true)
     setErrorMsg('')
     setSuccessMsg('')
+
+    const qty = Number.parseInt(String(ventaPOS.quantity).trim(), 10)
+    const selectedProd = productos.find((p) => p.codigo === ventaPOS.productCode)
+
+    if (!selectedProd) {
+      setErrorMsg('Debes seleccionar un producto válido del inventario.')
+      return
+    }
+    if (!Number.isInteger(qty) || qty < 1) {
+      setErrorMsg('La cantidad debe ser un entero mayor o igual a 1.')
+      return
+    }
+    if (qty > (selectedProd.stock || 0)) {
+      setErrorMsg(
+        `Stock insuficiente para ${selectedProd.nombre}. Stock disponible: ${selectedProd.stock || 0}, solicitado: ${qty}.`
+      )
+      return
+    }
+
+    setLoading(true)
     try {
-      const res = await registrarVentaAdmin(ventaPOS)
+      const res = await registrarVentaAdmin({
+        ...ventaPOS,
+        quantity: qty,
+      })
       setTicketVenta(res)
       setSuccessMsg(`Venta registrada exitosamente. Referencia: ${res.saleReference}`)
       cargarDatos()
@@ -184,11 +253,13 @@ function VendedorPanel() {
     e.preventDefault()
     setLoading(true)
     setErrorMsg('')
+    setClienteModalError('')
     setSuccessMsg('')
     try {
       const res = await crearCliente(nuevoCliente)
       setSuccessMsg(`Cliente ${res.fullName || res.firstName} registrado en Oracle.`)
       setShowClienteModal(false)
+      setClienteModalError('')
       setNuevoCliente({
         rut: '',
         firstName: '',
@@ -200,7 +271,7 @@ function VendedorPanel() {
       })
       cargarDatos()
     } catch (err) {
-      setErrorMsg(`Error registrando cliente: ${err.message}`)
+      setClienteModalError(`Error registrando cliente: ${err.message}`)
     } finally {
       setLoading(false)
     }
@@ -275,7 +346,9 @@ function VendedorPanel() {
                           }
                           required
                         >
-                          <option value="1">Cliente Mostrador General (ID: 1)</option>
+                          {clientes.length === 0 && (
+                            <option value="1">Cliente Mostrador General (ID: 1)</option>
+                          )}
                           {clientes.map((c) => (
                             <option key={c.id} value={c.id}>
                               {c.rut} - {c.fullName || `${c.firstName} ${c.lastName}`}
@@ -294,7 +367,7 @@ function VendedorPanel() {
                           required
                         >
                           {productos
-                            .filter((p) => p.estado !== 'DESCONTINUADO')
+                            .filter((p) => p.estado === 'ACTIVO' && (p.stock || 0) > 0)
                             .map((p) => (
                               <option key={p.codigo} value={p.codigo}>
                                 [{p.codigo}] {p.nombre} (Stock: {p.stock})
@@ -314,7 +387,7 @@ function VendedorPanel() {
                           onChange={(e) =>
                             setVentaPOS({
                               ...ventaPOS,
-                              quantity: parseInt(e.target.value) || 1,
+                              quantity: e.target.value,
                             })
                           }
                           required
@@ -332,7 +405,7 @@ function VendedorPanel() {
                           onChange={(e) =>
                             setVentaPOS({
                               ...ventaPOS,
-                              unitPriceClp: parseInt(e.target.value) || 0,
+                              unitPriceClp: parseInt(e.target.value, 10) || 0,
                             })
                           }
                           required
@@ -344,7 +417,9 @@ function VendedorPanel() {
                   <div className="bg-light p-3 rounded my-3 d-flex justify-content-between align-items-center">
                     <span className="fw-semibold">Total a Cobrar:</span>
                     <span className="fs-4 fw-bold text-primary">
-                      {formatearPrecioCLP(ventaPOS.quantity * ventaPOS.unitPriceClp)}
+                      {formatearPrecioCLP(
+                        (Number.parseInt(String(ventaPOS.quantity).trim(), 10) || 0) * (ventaPOS.unitPriceClp || 0)
+                      )}
                     </span>
                   </div>
 
@@ -518,7 +593,14 @@ function VendedorPanel() {
         <Card className="border-0 shadow-sm">
           <Card.Header className="bg-white py-3 d-flex justify-content-between align-items-center">
             <h5 className="mb-0 fw-bold">Clientes Registrados en Oracle DB ({clientes.length})</h5>
-            <Button variant="success" size="sm" onClick={() => setShowClienteModal(true)}>
+            <Button
+              variant="success"
+              size="sm"
+              onClick={() => {
+                setClienteModalError('')
+                setShowClienteModal(true)
+              }}
+            >
               + Nuevo Cliente Oracle
             </Button>
           </Card.Header>
@@ -638,12 +720,23 @@ function VendedorPanel() {
       </Modal>
 
       {/* MODAL NUEVO CLIENTE ORACLE */}
-      <Modal show={showClienteModal} onHide={() => setShowClienteModal(false)}>
+      <Modal
+        show={showClienteModal}
+        onHide={() => {
+          setShowClienteModal(false)
+          setClienteModalError('')
+        }}
+      >
         <Form onSubmit={handleCrearCliente}>
           <Modal.Header closeButton>
             <Modal.Title className="h5">Registrar Cliente en Oracle</Modal.Title>
           </Modal.Header>
           <Modal.Body>
+            {clienteModalError && (
+              <Alert variant="danger" className="py-2 small">
+                {clienteModalError}
+              </Alert>
+            )}
             <Row className="g-2">
               <Col xs={12}>
                 <Form.Group controlId="clRut" className="mb-2">
@@ -652,7 +745,10 @@ function VendedorPanel() {
                     type="text"
                     placeholder="12.345.678-9 o 12345678-9"
                     value={nuevoCliente.rut}
-                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, rut: e.target.value })}
+                    onChange={(e) => {
+                      setClienteModalError('')
+                      setNuevoCliente({ ...nuevoCliente, rut: e.target.value })
+                    }}
                     required
                   />
                 </Form.Group>
@@ -663,9 +759,10 @@ function VendedorPanel() {
                   <Form.Control
                     type="text"
                     value={nuevoCliente.firstName}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setClienteModalError('')
                       setNuevoCliente({ ...nuevoCliente, firstName: e.target.value })
-                    }
+                    }}
                     required
                   />
                 </Form.Group>
@@ -676,7 +773,10 @@ function VendedorPanel() {
                   <Form.Control
                     type="text"
                     value={nuevoCliente.lastName}
-                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, lastName: e.target.value })}
+                    onChange={(e) => {
+                      setClienteModalError('')
+                      setNuevoCliente({ ...nuevoCliente, lastName: e.target.value })
+                    }}
                     required
                   />
                 </Form.Group>
@@ -687,7 +787,10 @@ function VendedorPanel() {
                   <Form.Control
                     type="email"
                     value={nuevoCliente.email}
-                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, email: e.target.value })}
+                    onChange={(e) => {
+                      setClienteModalError('')
+                      setNuevoCliente({ ...nuevoCliente, email: e.target.value })
+                    }}
                     required
                   />
                 </Form.Group>
@@ -699,7 +802,10 @@ function VendedorPanel() {
                     type="text"
                     placeholder="+56912345678"
                     value={nuevoCliente.phone}
-                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, phone: e.target.value })}
+                    onChange={(e) => {
+                      setClienteModalError('')
+                      setNuevoCliente({ ...nuevoCliente, phone: e.target.value })
+                    }}
                     required
                   />
                 </Form.Group>
@@ -711,7 +817,10 @@ function VendedorPanel() {
                     type="text"
                     placeholder="Viña del Mar"
                     value={nuevoCliente.commune}
-                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, commune: e.target.value })}
+                    onChange={(e) => {
+                      setClienteModalError('')
+                      setNuevoCliente({ ...nuevoCliente, commune: e.target.value })
+                    }}
                     required
                   />
                 </Form.Group>
@@ -719,7 +828,13 @@ function VendedorPanel() {
             </Row>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowClienteModal(false)}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowClienteModal(false)
+                setClienteModalError('')
+              }}
+            >
               Cancelar
             </Button>
             <Button variant="success" type="submit" disabled={loading}>

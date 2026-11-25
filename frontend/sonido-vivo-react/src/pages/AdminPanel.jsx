@@ -14,10 +14,13 @@ import {
   actualizarCliente,
   actualizarProducto,
   ajustarStock,
+  calcularDescuento,
   cambiarEstadoProducto,
   crearCliente,
   crearProducto,
+  descargarReporteMetricas,
   descontinuarProducto,
+  ejecutarLiquidacion,
   obtenerClientes,
   obtenerMetricas,
   obtenerProductos,
@@ -43,7 +46,7 @@ const MOTIVOS_AJUSTE = [
 function AdminPanel() {
   const { usuario, isAdmin, isAuthenticated } = useAuth()
 
-  const [activeTab, setActiveTab] = useState('kpis') // 'kpis' | 'productos' | 'reajuste' | 'clientes'
+  const [activeTab, setActiveTab] = useState('kpis') // 'kpis' | 'productos' | 'reajuste' | 'clientes' | 'liquidaciones'
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
@@ -52,10 +55,12 @@ function AdminPanel() {
   const [metrics, setMetrics] = useState(null)
   const [productos, setProductos] = useState([])
   const [clientes, setClientes] = useState([])
+  const [exporting, setExporting] = useState(false)
 
   // Modal Alta / Edición Producto
   const [showProductModal, setShowProductModal] = useState(false)
   const [isEditingProduct, setIsEditingProduct] = useState(false)
+  const [productModalError, setProductModalError] = useState('')
   const [prodForm, setProdForm] = useState({
     codigo: '',
     nombre: '',
@@ -76,7 +81,7 @@ function AdminPanel() {
 
   // Modal Reajuste de Precios
   const [reajusteForm, setReajusteForm] = useState({
-    porcentaje: 5.0,
+    porcentaje: '5.0',
     categoria: '',
     motivo: 'Ajuste inflacionario semestral',
   })
@@ -84,6 +89,7 @@ function AdminPanel() {
   // Modal Alta / Edición Cliente Oracle
   const [showClienteModal, setShowClienteModal] = useState(false)
   const [isEditingCliente, setIsEditingCliente] = useState(false)
+  const [clienteModalError, setClienteModalError] = useState('')
   const [clienteForm, setClienteForm] = useState({
     id: '',
     rut: '',
@@ -94,6 +100,19 @@ function AdminPanel() {
     commune: '',
     region: 'Valparaíso',
   })
+
+  // Tab Liquidaciones Oracle
+  const [processDate, setProcessDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [liquidationResult, setLiquidationResult] = useState(null)
+  const [liquidationLoading, setLiquidationLoading] = useState(false)
+  const [liquidationError, setLiquidationError] = useState('')
+
+  // Previsualización Descuento
+  const [discountCustomerId, setDiscountCustomerId] = useState('')
+  const [discountGrossClp, setDiscountGrossClp] = useState('100000')
+  const [discountPreview, setDiscountPreview] = useState(null)
+  const [discountLoading, setDiscountLoading] = useState(false)
+  const [discountError, setDiscountError] = useState('')
 
   const cargarDatosAdmin = async () => {
     setLoading(true)
@@ -149,6 +168,7 @@ function AdminPanel() {
 
   const handleOpenCreateProduct = () => {
     setIsEditingProduct(false)
+    setProductModalError('')
     setProdForm({
       codigo: '',
       nombre: '',
@@ -162,6 +182,7 @@ function AdminPanel() {
 
   const handleOpenEditProduct = (prod) => {
     setIsEditingProduct(true)
+    setProductModalError('')
     setProdForm({
       codigo: prod.codigo,
       nombre: prod.nombre,
@@ -177,6 +198,7 @@ function AdminPanel() {
     e.preventDefault()
     setLoading(true)
     setErrorMsg('')
+    setProductModalError('')
     setSuccessMsg('')
     try {
       const tagsArray = prodForm.tags
@@ -206,7 +228,7 @@ function AdminPanel() {
       setShowProductModal(false)
       cargarDatosAdmin()
     } catch (err) {
-      setErrorMsg(`Error con producto: ${err.message}`)
+      setProductModalError(err.message || 'Error con producto')
     } finally {
       setLoading(false)
     }
@@ -273,7 +295,12 @@ function AdminPanel() {
 
   const handleReajustePrecios = async (e) => {
     e.preventDefault()
-    if (!window.confirm(`¿Aplicar ajuste masivo de ${reajusteForm.porcentaje}% a los precios?`)) {
+    const pct = Number(reajusteForm.porcentaje)
+    if (!Number.isFinite(pct) || pct === 0 || pct < -50 || pct > 100) {
+      setErrorMsg('El porcentaje de reajuste debe ser un número entre -50 y 100 (distinto de 0).')
+      return
+    }
+    if (!window.confirm(`¿Aplicar ajuste masivo de ${pct}% a los precios?`)) {
       return
     }
     setLoading(true)
@@ -281,7 +308,7 @@ function AdminPanel() {
     setSuccessMsg('')
     try {
       const res = await reajustarPrecios(
-        reajusteForm.porcentaje,
+        pct,
         reajusteForm.categoria || null,
         reajusteForm.motivo
       )
@@ -298,6 +325,7 @@ function AdminPanel() {
 
   const handleOpenCreateCliente = () => {
     setIsEditingCliente(false)
+    setClienteModalError('')
     setClienteForm({
       id: '',
       rut: '',
@@ -313,6 +341,7 @@ function AdminPanel() {
 
   const handleOpenEditCliente = (c) => {
     setIsEditingCliente(true)
+    setClienteModalError('')
     setClienteForm({
       id: c.id,
       rut: c.rut,
@@ -330,6 +359,7 @@ function AdminPanel() {
     e.preventDefault()
     setLoading(true)
     setErrorMsg('')
+    setClienteModalError('')
     setSuccessMsg('')
     try {
       if (isEditingCliente) {
@@ -342,9 +372,76 @@ function AdminPanel() {
       setShowClienteModal(false)
       cargarDatosAdmin()
     } catch (err) {
-      setErrorMsg(`Error al guardar cliente en Oracle: ${err.message}`)
+      setClienteModalError(err.message || 'Error al guardar cliente en Oracle')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleExportMetrics = async (format) => {
+    setExporting(true)
+    setErrorMsg('')
+    try {
+      const { blob, filename } = await descargarReporteMetricas(format)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+      setSuccessMsg(`Reporte ${filename} descargado exitosamente.`)
+    } catch (err) {
+      setErrorMsg(`Error al exportar métricas (${format}): ${err.message}`)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleEjecutarLiquidacion = async (e) => {
+    e.preventDefault()
+    setLiquidationLoading(true)
+    setLiquidationError('')
+    setErrorMsg('')
+    setSuccessMsg('')
+    try {
+      const result = await ejecutarLiquidacion(processDate)
+      setLiquidationResult(result)
+      setSuccessMsg(`Liquidación completada: ${result.processedCustomers} clientes procesados.`)
+    } catch (err) {
+      setLiquidationError(err.message || 'Error al ejecutar liquidación Oracle')
+    } finally {
+      setLiquidationLoading(false)
+    }
+  }
+
+  const handleCalcularDescuento = async (e) => {
+    e.preventDefault()
+    const trimmedId = String(discountCustomerId).trim()
+    const gross = Number(discountGrossClp)
+    if (!trimmedId) {
+      setDiscountError('Ingresa un ID de cliente Oracle válido.')
+      return
+    }
+    if (!Number.isFinite(gross) || gross <= 0) {
+      setDiscountError('El monto bruto debe ser mayor a 0 CLP.')
+      return
+    }
+    setDiscountLoading(true)
+    setDiscountError('')
+    try {
+      const res = await calcularDescuento(trimmedId, gross)
+      setDiscountPreview({
+        customerId: trimmedId,
+        grossAmountClp: gross,
+        discountClp: res.discountClp ?? 0,
+        netAmountClp: gross - (res.discountClp ?? 0),
+      })
+    } catch (err) {
+      setDiscountError(err.message || 'Error al calcular descuento')
+    } finally {
+      setDiscountLoading(false)
     }
   }
 
@@ -446,6 +543,15 @@ function AdminPanel() {
                   👥 Clientes Oracle
                 </button>
               </li>
+              <li className="mt-2">
+                <button
+                  type="button"
+                  className={`btn w-100 text-start border-0 ${activeTab === 'liquidaciones' ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => setActiveTab('liquidaciones')}
+                >
+                  ⚖️ Liquidaciones Oracle
+                </button>
+              </li>
               <li className="mt-3 pt-3 border-top">
                 <Link to="/" className="btn btn-outline-primary btn-sm w-100 text-center">
                   🏪 Ver Tienda Pública
@@ -467,13 +573,41 @@ function AdminPanel() {
           {/* TAB 1: KPIS & DASHBOARD GENERAL */}
           {activeTab === 'kpis' && (
             <div className="kpis-section">
-              <header className="section-header mb-4">
-                <h1 className="h3 mb-1" style={{ fontFamily: 'var(--font-heading)' }}>
-                  Resumen Operativo del Negocio
-                </h1>
-                <p className="text-muted small">
-                  Supervisión en vivo de stock, catálogo comercial y usuarios registrados en MongoDB y Oracle.
-                </p>
+              <header className="section-header mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                  <h1 className="h3 mb-1" style={{ fontFamily: 'var(--font-heading)' }}>
+                    Resumen Operativo del Negocio
+                  </h1>
+                  <p className="text-muted small mb-0">
+                    Supervisión en vivo de stock, catálogo comercial y usuarios registrados en MongoDB y Oracle.
+                  </p>
+                </div>
+                <div className="d-flex gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm"
+                    disabled={exporting}
+                    onClick={() => handleExportMetrics('csv')}
+                  >
+                    📥 Exportar CSV
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm"
+                    disabled={exporting}
+                    onClick={() => handleExportMetrics('pdf')}
+                  >
+                    📄 Exportar PDF
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm"
+                    disabled={exporting}
+                    onClick={() => handleExportMetrics('json')}
+                  >
+                    📋 Exportar JSON
+                  </button>
+                </div>
               </header>
 
               {/* Stats Grid */}
@@ -838,7 +972,7 @@ function AdminPanel() {
                       onChange={(e) =>
                         setReajusteForm({
                           ...reajusteForm,
-                          porcentaje: parseFloat(e.target.value) || 0,
+                          porcentaje: e.target.value,
                         })
                       }
                       required
@@ -908,7 +1042,7 @@ function AdminPanel() {
                     Gestión de Clientes Oracle DB ({clientes.length})
                   </h1>
                   <p className="text-muted small mb-0">
-                    Sincronización directa con tabla relacional Oracle <code>SONIDO_VIVO.CLIENTES</code>.
+                    Sincronización directa con tabla relacional Oracle <code>SONIDO_VIVO.CLIENTE</code>.
                   </p>
                 </div>
                 <button
@@ -970,11 +1104,195 @@ function AdminPanel() {
               </div>
             </div>
           )}
+
+          {/* TAB 5: LIQUIDACIONES ORACLE */}
+          {activeTab === 'liquidaciones' && (
+            <div className="liquidaciones-section">
+              <header className="section-header mb-4">
+                <h1 className="h3 mb-1" style={{ fontFamily: 'var(--font-heading)' }}>
+                  Liquidaciones Oracle (PL/SQL)
+                </h1>
+                <p className="text-muted small">
+                  Ejecución del procedimiento almacenado <code>PKG_SONIDO_VIVO.SP_LIQUIDAR_CLIENTES</code> y
+                  simulación de descuentos por cliente.
+                </p>
+              </header>
+
+              {liquidationError && (
+                <Alert variant="danger" dismissible onClose={() => setLiquidationError('')} className="mb-4">
+                  {liquidationError}
+                </Alert>
+              )}
+
+              <Row className="g-4 mb-4">
+                {/* Formulario de Liquidación */}
+                <Col xs={12} lg={6}>
+                  <div className="p-4 bg-white rounded border h-100 shadow-sm">
+                    <h4 className="h5 fw-bold mb-3">1. Ejecutar Proceso de Liquidación</h4>
+                    <p className="text-muted small mb-3">
+                      Liquida las operaciones de clientes en Oracle DB para la fecha indicada (o el día de hoy si no se especifica).
+                    </p>
+                    <Form onSubmit={handleEjecutarLiquidacion}>
+                      <Form.Group className="mb-3" controlId="admLiqProcessDate">
+                        <Form.Label className="small fw-semibold">Fecha de Proceso</Form.Label>
+                        <Form.Control
+                          type="date"
+                          value={processDate}
+                          onChange={(e) => setProcessDate(e.target.value)}
+                          required
+                        />
+                        <Form.Text className="text-muted">
+                          Formato YYYY-MM-DD. Ejecuta <code>PKG_SONIDO_VIVO.SP_LIQUIDAR_CLIENTES</code>.
+                        </Form.Text>
+                      </Form.Group>
+
+                      <button
+                        type="submit"
+                        className="btn btn-primary w-100 fw-bold"
+                        disabled={liquidationLoading}
+                      >
+                        {liquidationLoading ? (
+                          <>
+                            <Spinner animation="border" size="sm" className="me-2" />
+                            Ejecutando en Oracle...
+                          </>
+                        ) : (
+                          '⚖️ Ejecutar Liquidación Oracle'
+                        )}
+                      </button>
+                    </Form>
+
+                    {liquidationResult && (
+                      <div className="mt-4 p-3 bg-light rounded border">
+                        <h5 className="h6 fw-bold mb-2 text-success">✓ Resultado de Liquidación</h5>
+                        <ul className="list-unstyled mb-0 small">
+                          <li className="mb-1">
+                            <strong>Fecha de Proceso:</strong>{' '}
+                            <span className="tabular-nums">{liquidationResult.processDate}</span>
+                          </li>
+                          <li className="mb-1">
+                            <strong>Clientes Procesados:</strong>{' '}
+                            <span className="badge badge-ok tabular-nums">{liquidationResult.processedCustomers}</span>
+                          </li>
+                          <li className="mb-1">
+                            <strong>Total Liquidado:</strong>{' '}
+                            <span className="fw-bold text-primary tabular-nums">
+                              {formatearPrecioCLP(liquidationResult.totalLiquidatedClp)}
+                            </span>
+                          </li>
+                          <li>
+                            <strong>Mensaje / Estado:</strong>{' '}
+                            <code>{liquidationResult.statusMessage}</code>
+                          </li>
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </Col>
+
+                {/* Previsualización de Descuento */}
+                <Col xs={12} lg={6}>
+                  <div className="p-4 bg-white rounded border h-100 shadow-sm">
+                    <h4 className="h5 fw-bold mb-3">2. Previsualizar Descuento Estimado</h4>
+                    <p className="text-muted small mb-3">
+                      Calcula el descuento aplicable a un cliente para un monto bruto según las reglas PL/SQL (<code>FN_CALCULAR_DESCUENTO</code>).
+                    </p>
+                    {discountError && (
+                      <Alert variant="danger" dismissible onClose={() => setDiscountError('')} className="py-2 small">
+                        {discountError}
+                      </Alert>
+                    )}
+                    <Form onSubmit={handleCalcularDescuento}>
+                      <Form.Group className="mb-3" controlId="admDiscCustomerId">
+                        <Form.Label className="small fw-semibold">ID Cliente Oracle</Form.Label>
+                        <Form.Control
+                          type="text"
+                          placeholder="Ej: 1"
+                          value={discountCustomerId}
+                          onChange={(e) => {
+                            setDiscountError('')
+                            setDiscountCustomerId(e.target.value)
+                          }}
+                          required
+                        />
+                        <Form.Text className="text-muted">
+                          ID numérico del cliente en Oracle DB.
+                        </Form.Text>
+                      </Form.Group>
+
+                      <Form.Group className="mb-3" controlId="admDiscGrossAmount">
+                        <Form.Label className="small fw-semibold">Monto Bruto CLP</Form.Label>
+                        <Form.Control
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={discountGrossClp}
+                          onChange={(e) => {
+                            setDiscountError('')
+                            setDiscountGrossClp(e.target.value)
+                          }}
+                          required
+                        />
+                      </Form.Group>
+
+                      <button
+                        type="submit"
+                        className="btn btn-secondary w-100 fw-bold"
+                        disabled={discountLoading}
+                      >
+                        {discountLoading ? (
+                          <>
+                            <Spinner animation="border" size="sm" className="me-2" />
+                            Consultando PL/SQL...
+                          </>
+                        ) : (
+                          '🔍 Calcular Descuento'
+                        )}
+                      </button>
+                    </Form>
+
+                    {discountPreview && (
+                      <div className="mt-4 p-3 bg-light rounded border">
+                        <h5 className="h6 fw-bold mb-2 text-primary">Detalle de Simulación</h5>
+                        <ul className="list-unstyled mb-0 small">
+                          <li className="mb-1">
+                            <strong>Cliente ID:</strong> {discountPreview.customerId}
+                          </li>
+                          <li className="mb-1">
+                            <strong>Monto Bruto:</strong>{' '}
+                            <span className="tabular-nums">{formatearPrecioCLP(discountPreview.grossAmountClp)}</span>
+                          </li>
+                          <li className="mb-1">
+                            <strong>Descuento Aplicado:</strong>{' '}
+                            <span className="fw-bold text-success tabular-nums">
+                              -{formatearPrecioCLP(discountPreview.discountClp)}
+                            </span>
+                          </li>
+                          <li>
+                            <strong>Total Neto Estimado:</strong>{' '}
+                            <span className="fw-bold text-dark tabular-nums">
+                              {formatearPrecioCLP(discountPreview.netAmountClp)}
+                            </span>
+                          </li>
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </Col>
+              </Row>
+            </div>
+          )}
         </main>
       </div>
 
       {/* MODAL CREAR / EDITAR PRODUCTO */}
-      <Modal show={showProductModal} onHide={() => setShowProductModal(false)}>
+      <Modal
+        show={showProductModal}
+        onHide={() => {
+          setShowProductModal(false)
+          setProductModalError('')
+        }}
+      >
         <Form onSubmit={handleSaveProduct}>
           <Modal.Header closeButton>
             <Modal.Title className="h5" style={{ fontFamily: 'var(--font-heading)' }}>
@@ -982,6 +1300,11 @@ function AdminPanel() {
             </Modal.Title>
           </Modal.Header>
           <Modal.Body>
+            {productModalError && (
+              <Alert variant="danger" className="py-2 small mb-3">
+                {productModalError}
+              </Alert>
+            )}
             {!isEditingProduct && (
               <Form.Group className="mb-3" controlId="prodCodigo">
                 <Form.Label className="small fw-semibold">
@@ -991,7 +1314,10 @@ function AdminPanel() {
                   type="text"
                   placeholder="Ej: G-FND-STRAT-01"
                   value={prodForm.codigo}
-                  onChange={(e) => setProdForm({ ...prodForm, codigo: e.target.value })}
+                  onChange={(e) => {
+                    setProductModalError('')
+                    setProdForm({ ...prodForm, codigo: e.target.value })
+                  }}
                   required
                 />
                 <Form.Text className="text-muted">
@@ -1006,7 +1332,10 @@ function AdminPanel() {
                 type="text"
                 placeholder="Fender Stratocaster American Professional"
                 value={prodForm.nombre}
-                onChange={(e) => setProdForm({ ...prodForm, nombre: e.target.value })}
+                onChange={(e) => {
+                  setProductModalError('')
+                  setProdForm({ ...prodForm, nombre: e.target.value })
+                }}
                 required
               />
             </Form.Group>
@@ -1015,7 +1344,10 @@ function AdminPanel() {
               <Form.Label className="small fw-semibold">Categoría Oficial</Form.Label>
               <Form.Select
                 value={prodForm.categoria}
-                onChange={(e) => setProdForm({ ...prodForm, categoria: e.target.value })}
+                onChange={(e) => {
+                  setProductModalError('')
+                  setProdForm({ ...prodForm, categoria: e.target.value })
+                }}
               >
                 {CATEGORIAS_VALIDAS.map((cat) => (
                   <option key={cat} value={cat}>
@@ -1034,7 +1366,10 @@ function AdminPanel() {
                     min="1000"
                     placeholder="150000"
                     value={prodForm.precioClp}
-                    onChange={(e) => setProdForm({ ...prodForm, precioClp: e.target.value })}
+                    onChange={(e) => {
+                      setProductModalError('')
+                      setProdForm({ ...prodForm, precioClp: e.target.value })
+                    }}
                     required
                   />
                 </Form.Group>
@@ -1047,9 +1382,10 @@ function AdminPanel() {
                     min="0"
                     placeholder="10"
                     value={prodForm.stockDisponible}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setProductModalError('')
                       setProdForm({ ...prodForm, stockDisponible: e.target.value })
-                    }
+                    }}
                     required
                   />
                 </Form.Group>
@@ -1062,12 +1398,22 @@ function AdminPanel() {
                 type="text"
                 placeholder="guitarra, electrica, fender, profesional"
                 value={prodForm.tags}
-                onChange={(e) => setProdForm({ ...prodForm, tags: e.target.value })}
+                onChange={(e) => {
+                  setProductModalError('')
+                  setProdForm({ ...prodForm, tags: e.target.value })
+                }}
               />
             </Form.Group>
           </Modal.Body>
           <Modal.Footer>
-            <button type="button" className="btn btn-secondary" onClick={() => setShowProductModal(false)}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setShowProductModal(false)
+                setProductModalError('')
+              }}
+            >
               Cancelar
             </button>
             <button type="submit" className="btn btn-primary" disabled={loading}>
@@ -1156,7 +1502,13 @@ function AdminPanel() {
       </Modal>
 
       {/* MODAL CREAR / EDITAR CLIENTE ORACLE */}
-      <Modal show={showClienteModal} onHide={() => setShowClienteModal(false)}>
+      <Modal
+        show={showClienteModal}
+        onHide={() => {
+          setShowClienteModal(false)
+          setClienteModalError('')
+        }}
+      >
         <Form onSubmit={handleSaveCliente}>
           <Modal.Header closeButton>
             <Modal.Title className="h5" style={{ fontFamily: 'var(--font-heading)' }}>
@@ -1164,6 +1516,11 @@ function AdminPanel() {
             </Modal.Title>
           </Modal.Header>
           <Modal.Body>
+            {clienteModalError && (
+              <Alert variant="danger" className="py-2 small mb-3">
+                {clienteModalError}
+              </Alert>
+            )}
             <Row className="g-2">
               <Col xs={12}>
                 <Form.Group controlId="admClRut" className="mb-2">
@@ -1172,7 +1529,10 @@ function AdminPanel() {
                     type="text"
                     placeholder="12.345.678-9"
                     value={clienteForm.rut}
-                    onChange={(e) => setClienteForm({ ...clienteForm, rut: e.target.value })}
+                    onChange={(e) => {
+                      setClienteModalError('')
+                      setClienteForm({ ...clienteForm, rut: e.target.value })
+                    }}
                     required
                   />
                 </Form.Group>
@@ -1183,9 +1543,10 @@ function AdminPanel() {
                   <Form.Control
                     type="text"
                     value={clienteForm.firstName}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setClienteModalError('')
                       setClienteForm({ ...clienteForm, firstName: e.target.value })
-                    }
+                    }}
                     required
                   />
                 </Form.Group>
@@ -1196,9 +1557,10 @@ function AdminPanel() {
                   <Form.Control
                     type="text"
                     value={clienteForm.lastName}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setClienteModalError('')
                       setClienteForm({ ...clienteForm, lastName: e.target.value })
-                    }
+                    }}
                     required
                   />
                 </Form.Group>
@@ -1209,9 +1571,10 @@ function AdminPanel() {
                   <Form.Control
                     type="email"
                     value={clienteForm.email}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setClienteModalError('')
                       setClienteForm({ ...clienteForm, email: e.target.value })
-                    }
+                    }}
                     required
                   />
                 </Form.Group>
@@ -1223,9 +1586,10 @@ function AdminPanel() {
                     type="text"
                     placeholder="+56912345678"
                     value={clienteForm.phone}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setClienteModalError('')
                       setClienteForm({ ...clienteForm, phone: e.target.value })
-                    }
+                    }}
                     required
                   />
                 </Form.Group>
@@ -1237,9 +1601,10 @@ function AdminPanel() {
                     type="text"
                     placeholder="Viña del Mar"
                     value={clienteForm.commune}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setClienteModalError('')
                       setClienteForm({ ...clienteForm, commune: e.target.value })
-                    }
+                    }}
                     required
                   />
                 </Form.Group>
@@ -1250,9 +1615,10 @@ function AdminPanel() {
                   <Form.Control
                     type="text"
                     value={clienteForm.region}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setClienteModalError('')
                       setClienteForm({ ...clienteForm, region: e.target.value })
-                    }
+                    }}
                     required
                   />
                 </Form.Group>
@@ -1260,7 +1626,14 @@ function AdminPanel() {
             </Row>
           </Modal.Body>
           <Modal.Footer>
-            <button type="button" className="btn btn-secondary" onClick={() => setShowClienteModal(false)}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setShowClienteModal(false)
+                setClienteModalError('')
+              }}
+            >
               Cancelar
             </button>
             <button type="submit" className="btn btn-primary" disabled={loading}>

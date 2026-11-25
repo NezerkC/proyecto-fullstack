@@ -305,3 +305,49 @@ export async function registrarCompraCliente(saleData) {
     body: JSON.stringify(body),
   })
 }
+
+/**
+ * Ejecutar liquidación de clientes en Oracle PL/SQL (POST /admin/operations/liquidations)
+ */
+export async function ejecutarLiquidacion(processDate) {
+  const query = processDate ? `?processDate=${encodeURIComponent(processDate)}` : ''
+  return apiClient(`/admin/operations/liquidations${query}`, {
+    method: 'POST',
+  })
+}
+
+/**
+ * Calcular descuento de cliente en Oracle PL/SQL (GET /admin/operations/discount)
+ */
+export async function calcularDescuento(customerId, grossAmountClp) {
+  return apiClient(
+    `/admin/operations/discount?customerId=${encodeURIComponent(customerId)}&grossAmountClp=${encodeURIComponent(grossAmountClp)}`
+  )
+}
+
+/**
+ * Descargar reporte de métricas en formato CSV, PDF o JSON (GET /admin/dashboard/export)
+ */
+export async function descargarReporteMetricas(format = 'csv') {
+  const token = localStorage.getItem('token')
+  const headers = token ? { Authorization: `Bearer ${token}` } : {}
+  const response = await fetch(`${BASE_URL}/admin/dashboard/export?format=${encodeURIComponent(format)}`, {
+    headers,
+  })
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}))
+    throw new Error(errorBody.message || `Error al exportar métricas (${response.status})`)
+  }
+
+  const disposition = response.headers.get('Content-Disposition') || ''
+  let filename = `sonidovivo-metrics.${format}`
+  const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+  if (match && match[1]) {
+    filename = match[1].replace(/['"]/g, '').trim()
+  }
+
+  const blob = await response.blob()
+  return { blob, filename }
+}
+

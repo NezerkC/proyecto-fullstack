@@ -52,7 +52,10 @@ function Checkout() {
   const CODE_REGEX = /^[A-Z]{1,4}-[A-Z0-9]{2,5}-[A-Z0-9]{2,10}-[0-9]{2}$/
 
   const validarCarrito = () => {
-    if (!customerId.trim()) return 'Ingresa tu ID de cliente.'
+    const trimmedCustomer = customerId.trim()
+    if (!/^\d+$/.test(trimmedCustomer) || !(Number.parseInt(trimmedCustomer, 10) > 0)) {
+      return 'El ID de cliente Oracle debe ser un entero positivo (ej: 1).'
+    }
     for (const it of cartItems) {
       if (!CODE_REGEX.test(it.codigo || '')) return `Código inválido en "${it.nombre}" (${it.codigo}). Quítalo del carro.`
       if (!Number.isInteger(Number(it.quantity)) || Number(it.quantity) < 1) return `Cantidad inválida en "${it.nombre}".`
@@ -262,7 +265,7 @@ function Checkout() {
                         required
                       />
                       <Form.Text className="text-muted">
-                        ID numérico o RUT del cliente registrado en Oracle DB.
+                        Ingresa el ID numérico del cliente registrado en Oracle DB (ej: 1 al 5 para clientes de prueba).
                       </Form.Text>
                     </Form.Group>
                   </Col>
